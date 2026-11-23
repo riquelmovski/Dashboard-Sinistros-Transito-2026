@@ -1,0 +1,19 @@
+# ==============================================================================
+# Observatório de Sinistros Rodoviários (PRF Analytics 2026)
+# Dependências Python
+# ==============================================================================
+
+# Framework Web
+Django>=4.2.0,<5.0.0
+asgiref>=3.7.0
+sqlparse>=0.5.0
+
+# Engenharia e Análise de Dados
+pandas>=2.0.0
+numpy>=1.24.0
+python-dateutil>=2.8.0
+pytz>=2024.1
+tzdata>=2024.1
+
+# Visualização de Dados (Scripts de Análise / EDA)
+plotly>=5.18.0

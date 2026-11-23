@@ -1,0 +1,79 @@
+# ==============================================================================
+# .gitignore - Observatório de Sinistros Rodoviários (PRF Analytics)
+# ==============================================================================
+
+# Ambientes Virtuais (Virtual Environments)
+venv/
+.venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# Byte-compiled / Python Cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Django
+*.log
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+media/
+staticfiles/
+
+# Variáveis de Ambiente & Credenciais
+.env
+.env.*
+!.env.example
+
+# Arquivos de Sistema Operacional (macOS e Windows)
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDEs e Editores de Código
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.idea/
+*.sublime-workspace
+*.sublime-project
+*.swp
+*.swo
+*~
+
+# Testes, Cobertura e Scratch
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+scratch/
+tmp/

@@ -1,0 +1,282 @@
+{% extends 'dashboard/base.html' %}
+
+{% block title %}Mapa Geoespacial — PRF Analytics 2026{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+    <!-- Cabeçalho do Módulo Geoespacial -->
+    <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-2">
+        <div>
+            <div class="flex items-center gap-2 mb-1">
+                <span class="text-[11px] font-bold uppercase tracking-wider text-blue-700 bg-blue-50 border border-blue-200 px-2.5 py-0.5 rounded-full">
+                    Módulo Geoespacial
+                </span>
+                <span class="text-slate-300">•</span>
+                <span class="text-xs text-slate-500 font-medium">
+                    {{ uf_label }}{% if municipio_selecionado %} • {{ municipio_label }}{% endif %}
+                </span>
+            </div>
+            <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+                Distribuição Geográfica de Sinistros
+            </h1>
+            <p class="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+                Densidade geoespacial das ocorrências nas rodovias federais. Clique em qualquer estado para filtrar todo o painel.
+            </p>
+        </div>
+
+        <div class="flex items-center gap-3">
+            <span class="px-3 py-1.5 rounded-xl bg-white dark:bg-[#1E293B] border border-[#E5E7EB] dark:border-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-300 shadow-xs">
+                27 Estados Mapeados
+            </span>
+        </div>
+    </div>
+
+    <!-- Grid do Mapa: Mapa Interativo ECharts (8 cols) + Ranking Lateral (4 cols) -->
+    <section class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+
+        <!-- Card do Mapa ECharts — 8 Colunas -->
+        <div class="lg:col-span-8 bento-card bento-item p-6 flex flex-col justify-between min-h-[620px]">
+            <div>
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-[#F1F5F9] dark:border-slate-800 gap-3">
+                    <div>
+                        <h2 class="text-sm font-bold text-slate-900 dark:text-white">Malha Rodoviária Federativa do Brasil</h2>
+                        <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Vetorização dos estados com coloração contínua por densidade</p>
+                    </div>
+                    <div class="flex items-center gap-2 text-xs">
+                        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 font-semibold border border-blue-200 dark:border-blue-800">
+                            <span class="w-2 h-2 rounded-full bg-blue-600"></span>
+                            Clique na UF para Filtrar
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Container do Mapa ECharts com Altura Explícita -->
+                <div class="w-full mt-2 relative flex items-center justify-center" id="mapa-brasil-container" style="width: 100%; height: 560px; min-height: 560px;">
+                    <!-- Loader inicial enquanto o GeoJSON é registrado -->
+                    <div id="mapa-loader" class="flex flex-col items-center gap-2 text-slate-400 text-xs">
+                        <svg class="animate-spin h-6 w-6 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <span>Carregando malha oficial dos 27 estados...</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pt-3 border-t border-[#F1F5F9] dark:border-slate-800 text-[11px] text-slate-400 dark:text-slate-500 flex items-center justify-between">
+                <span>Fonte: Polícia Rodoviária Federal • Malha Oficial IBGE</span>
+                <span class="text-blue-600 dark:text-blue-400 font-semibold">Interatividade Vetorial</span>
+            </div>
+        </div>
+
+        <!-- Painel Lateral: Ranking das UFs mais críticas — 4 Colunas -->
+        <div class="lg:col-span-4 bento-card bento-item p-6 flex flex-col justify-between">
+            <div>
+                <div class="flex items-center justify-between pb-3 border-b border-[#F1F5F9] dark:border-slate-800">
+                    <div>
+                        <h2 class="text-sm font-bold text-slate-900 dark:text-white">Ranking por Estado (UF)</h2>
+                        <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Top estados com maior volume</p>
+                    </div>
+                    <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                        {{ ranking_ufs|length }} UFs
+                    </span>
+                </div>
+
+                <!-- Lista de Ranking com Scroll -->
+                <div class="max-h-[500px] overflow-y-auto space-y-1.5 mt-3 pr-1">
+                    {% for row in ranking_ufs %}
+                    <a href="?uf={{ row.sigla }}" 
+                       class="flex items-center justify-between p-2.5 rounded-xl border transition-all group {% if row.ativa %}bg-blue-50 dark:bg-blue-950/60 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300{% else %}bg-[#F8F9FB] dark:bg-slate-800/40 border-transparent hover:border-slate-200 dark:hover:border-slate-700 hover:bg-white dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200{% endif %}">
+                        <div class="flex items-center gap-3">
+                            <span class="w-6 h-6 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center text-xs font-bold text-slate-500 dark:text-slate-400 group-hover:text-blue-600 dark:group-hover:text-blue-400">
+                                {{ row.posicao }}
+                            </span>
+                            <div>
+                                <div class="font-bold text-xs group-hover:text-blue-600 dark:group-hover:text-blue-400">
+                                    {{ row.sigla }} <span class="font-normal text-slate-500 dark:text-slate-400 text-[11px]">• {{ row.nome }}</span>
+                                </div>
+                                <div class="text-[10px] text-slate-400 dark:text-slate-500">
+                                    Letalidade: <span class="font-semibold text-slate-700 dark:text-slate-300">{{ row.letalidade }}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="text-right">
+                            <div class="font-bold text-xs text-slate-900 dark:text-white tabular-nums">{{ row.sinistros }}</div>
+                            <div class="text-[10px] text-rose-600 dark:text-rose-400 font-semibold tabular-nums">{{ row.mortos }} mortos</div>
+                        </div>
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="pt-3 border-t border-[#F1F5F9] dark:border-slate-800 text-[11px] text-slate-400 dark:text-slate-500 text-center">
+                Clique em qualquer linha para filtrar exclusivamente pelo estado
+            </div>
+        </div>
+
+    </section>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    window.echartsInstances = window.echartsInstances || [];
+
+    const seriesData = {{ mapa_series_json|safe }};
+    const maxVal = {{ max_sinistros_uf|default:5000 }};
+    const container = document.getElementById('mapa-brasil-container');
+    const loader = document.getElementById('mapa-loader');
+
+    function getThemeSafe() {
+        return window.getChartTheme ? window.getChartTheme() : {
+            textColor: '#64748B',
+            splitLineColor: '#F1F5F9',
+            axisLineColor: '#E2E8F0',
+            inactiveBarColor: '#F1F5F9',
+            gaugeBgColor: '#E2E8F0',
+            tooltipBg: 'rgba(15, 23, 42, 0.94)',
+            tooltipBorder: 'rgba(255, 255, 255, 0.2)',
+            tooltipText: '#FFFFFF',
+            isDark: document.documentElement.classList.contains('dark')
+        };
+    }
+
+    function buildMapaOption(theme) {
+        return {
+            backgroundColor: 'transparent',
+            tooltip: {
+                trigger: 'item',
+                backgroundColor: theme.tooltipBg,
+                borderColor: theme.tooltipBorder,
+                borderWidth: 1,
+                padding: [10, 14],
+                textStyle: { color: theme.tooltipText, fontSize: 12, fontFamily: 'Inter, sans-serif' },
+                formatter: function(params) {
+                    if (!params.data) {
+                        return `<b>${params.name}</b><br/>Sem dados registrados`;
+                    }
+                    const d = params.data;
+                    return `
+                        <div style="font-weight:bold; font-size:13px; margin-bottom:4px;">${d.name} (${d.sigla})</div>
+                        <div style="display:flex; justify-content:space-between; gap:16px; margin:2px 0;">
+                            <span>Sinistros:</span>
+                            <span style="font-weight:bold;">${d.sinistros.toLocaleString('pt-BR')}</span>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; gap:16px; margin:2px 0; color:#F87171;">
+                            <span>Óbitos:</span>
+                            <span style="font-weight:bold;">${d.mortos.toLocaleString('pt-BR')}</span>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; gap:16px; margin:2px 0;">
+                            <span>Feridos Graves:</span>
+                            <span style="font-weight:bold;">${d.feridos_graves.toLocaleString('pt-BR')}</span>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; gap:16px; margin:2px 0; color:#A78BFA;">
+                            <span>Letalidade:</span>
+                            <span style="font-weight:bold;">${d.letalidade.toFixed(1)}%</span>
+                        </div>
+                        <div style="margin-top:6px; font-size:10px; color:#93C5FD;">Clique para filtrar o estado</div>
+                    `;
+                }
+            },
+            visualMap: {
+                min: 0,
+                max: maxVal,
+                text: ['Alto', 'Baixo'],
+                realtime: false,
+                calculable: true,
+                inRange: {
+                    color: theme.isDark 
+                        ? ['#1E293B', '#1D4ED8', '#2563EB', '#60A5FA']
+                        : ['#EFF6FF', '#93C5FD', '#3B82F6', '#1D4ED8']
+                },
+                textStyle: { color: theme.textColor, fontSize: 10 },
+                bottom: 10,
+                left: 10,
+                itemWidth: 12,
+                itemHeight: 80
+            },
+            series: [
+                {
+                    name: 'Sinistros por UF',
+                    type: 'map',
+                    map: 'BR',
+                    roam: true,
+                    scaleLimit: { min: 0.8, max: 4.0 },
+                    itemStyle: {
+                        borderColor: theme.isDark ? '#334155' : '#FFFFFF',
+                        borderWidth: 1.2,
+                        areaColor: theme.isDark ? '#1E293B' : '#F1F5F9'
+                    },
+                    emphasis: {
+                        itemStyle: {
+                            areaColor: '#F59E0B',
+                            shadowBlur: 14,
+                            shadowColor: 'rgba(0, 0, 0, 0.25)'
+                        },
+                        label: {
+                            show: true,
+                            color: '#FFFFFF',
+                            fontWeight: 'bold',
+                            fontSize: 11
+                        }
+                    },
+                    select: {
+                        itemStyle: {
+                            areaColor: '#2563EB'
+                        }
+                    },
+                    data: seriesData
+                }
+            ]
+        };
+    }
+
+    let chartMapa = null;
+
+    if (container) {
+        // Carregar a malha GeoJSON oficial via API
+        fetch("{% url 'dashboard:geojson_brasil' %}")
+            .then(response => {
+                if (!response.ok) throw new Error('Falha ao carregar GeoJSON');
+                return response.json();
+            })
+            .then(geoJson => {
+                if (loader) loader.style.display = 'none';
+
+                // Registrar o mapa do Brasil no ECharts
+                echarts.registerMap('BR', geoJson);
+
+                chartMapa = echarts.init(container);
+                window.echartsInstances.push(chartMapa);
+
+                chartMapa.setOption(buildMapaOption(getThemeSafe()));
+                chartMapa.resize();
+                setTimeout(() => chartMapa.resize(), 100);
+
+                // Clique no estado -> redireciona aplicando filtro da UF
+                chartMapa.on('click', function(params) {
+                    if (params.data && params.data.url) {
+                        window.location.href = params.data.url;
+                    }
+                });
+            })
+            .catch(err => {
+                if (loader) {
+                    loader.innerHTML = '<span class="text-rose-500">Erro ao carregar mapa interativo.</span>';
+                }
+            });
+    }
+
+    window.addEventListener('themeChanged', function() {
+        if (chartMapa) {
+            chartMapa.setOption(buildMapaOption(getThemeSafe()));
+        }
+    });
+});
+</script>
+</script>
+{% endblock %}

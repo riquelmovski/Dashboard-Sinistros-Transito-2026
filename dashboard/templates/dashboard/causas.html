@@ -1,0 +1,548 @@
+{% extends 'dashboard/base.html' %}
+
+{% block title %}Causas & Fator Humano — PRF Analytics 2026{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+    <!-- Cabeçalho da Página -->
+    <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-2">
+        <div>
+            <div class="flex items-center gap-2 mb-1">
+                <span class="text-[11px] font-bold uppercase tracking-wider text-blue-700 bg-blue-50 border border-blue-200 px-2.5 py-0.5 rounded-full">
+                    Módulo Operacional
+                </span>
+                <span class="text-slate-300">•</span>
+                <span class="text-xs text-slate-500 font-medium">
+                    {{ uf_label }}{% if municipio_selecionado %} • {{ municipio_label }}{% endif %}
+                </span>
+            </div>
+            <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+                Causas Determinantes & Fator Humano
+            </h1>
+            <p class="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+                Diagnóstico comportamental e cinemático das ocorrências: imperícia, desatenção, velocidade e dinâmica dos impactos.
+            </p>
+        </div>
+
+        <div class="flex items-center gap-2">
+            <span class="px-3 py-1.5 rounded-xl bg-white dark:bg-[#1E293B] border border-[#E5E7EB] dark:border-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-300 shadow-xs">
+                {{ tabela_causas|length }} Causas Analisadas
+            </span>
+        </div>
+    </div>
+
+    <!-- ================================================================= -->
+    <!-- CARD DE INSIGHTS INTELIGENTES (DIAGNÓSTICO AUTOMÁTICO PANDAS)     -->
+    <!-- ================================================================= -->
+    {% if insights_inteligentes %}
+    <section class="bento-card bento-item p-5 border-l-4 border-l-blue-600 dark:border-l-blue-500 relative overflow-hidden">
+        <!-- Cabeçalho do Card -->
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-3.5 mb-4 border-b border-[#F1F5F9] dark:border-slate-800/80 gap-2">
+            <div class="flex items-center gap-2.5">
+                <div class="w-8 h-8 rounded-xl bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                    </svg>
+                </div>
+                <div>
+                    <h2 class="text-sm font-black tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
+                        <span>Diagnóstico Operacional Inteligente</span>
+                    </h2>
+                    <p class="text-[11px] text-slate-500 dark:text-slate-400">Padrões comportamentais e cinemáticos detectados dinamicamente via análise estatística</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                    <span class="w-1.5 h-1.5 rounded-full bg-blue-600 dark:bg-blue-400 animate-pulse"></span>
+                    Diagnóstico Automático • Pandas
+                </span>
+            </div>
+        </div>
+
+        {% if insights_inteligentes.vazio %}
+        <div class="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/60 dark:border-slate-800 text-xs text-slate-600 dark:text-slate-400 flex items-center gap-3">
+            <svg class="w-5 h-5 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            <span>{{ insights_inteligentes.mensagem }}</span>
+        </div>
+        {% else %}
+        <!-- Grid de 3 Colunas de Insights -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {% for item in insights_inteligentes.itens %}
+            <div class="p-4 rounded-xl bg-slate-50/70 dark:bg-[#1E293B]/50 border border-slate-200/60 dark:border-slate-800/80 hover:border-blue-300 dark:hover:border-blue-700 transition-colors flex flex-col justify-between">
+                <div>
+                    <div class="flex items-center justify-between gap-2 mb-2">
+                        <span class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">{{ item.titulo }}</span>
+                        <span class="px-2 py-0.5 rounded-md text-[10px] font-bold {{ item.badge_cor }}">
+                            {{ item.badge }}
+                        </span>
+                    </div>
+                    <div class="text-xs font-semibold text-slate-800 dark:text-slate-200 leading-relaxed mb-2">
+                        {{ item.destaque }}
+                    </div>
+                    <p class="text-xs text-slate-600 dark:text-slate-400 leading-normal">
+                        {{ item.descricao|safe }}
+                    </p>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </section>
+    {% endif %}
+
+    <!-- 2 Gráficos ECharts Interativos Lado a Lado -->
+    <section class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+
+        <!-- Gráfico 1: Top 12 Causas Mais Frequentes -->
+        <div class="bento-card bento-item p-6 flex flex-col justify-between">
+            <div>
+                <div class="flex items-center justify-between pb-3 border-b border-[#F1F5F9] dark:border-slate-800">
+                    <div>
+                        <h2 class="text-sm font-bold text-slate-900 dark:text-white">Causas Determinantes Mais Recorrentes</h2>
+                        <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Principais falhas humanas identificadas no laudo pericial da PRF</p>
+                    </div>
+                    <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                        Top 12
+                    </span>
+                </div>
+                <div class="w-full mt-2" id="chart-causas" style="width: 100%; height: 340px; min-height: 340px; display: block;"></div>
+            </div>
+            <div class="pt-3 border-t border-[#F1F5F9] dark:border-slate-800 text-[11px] text-slate-400 dark:text-slate-500">
+                Passe o cursor sobre as barras para ver os valores exatos
+            </div>
+        </div>
+
+        <!-- Gráfico 2: Top 10 Tipos de Acidente / Cinemática -->
+        <div class="bento-card bento-item p-6 flex flex-col justify-between">
+            <div>
+                <div class="flex items-center justify-between pb-3 border-b border-[#F1F5F9] dark:border-slate-800">
+                    <div>
+                        <h2 class="text-sm font-bold text-slate-900 dark:text-white">Cinemática: Tipos de Colisão</h2>
+                        <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Mecânica do impacto (colisão frontal, traseira, tombamento)</p>
+                    </div>
+                    <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800">
+                        Top 10
+                    </span>
+                </div>
+                <div class="w-full mt-2" id="chart-tipos" style="width: 100%; height: 340px; min-height: 340px; display: block;"></div>
+            </div>
+            <div class="pt-3 border-t border-[#F1F5F9] dark:border-slate-800 text-[11px] text-slate-400 dark:text-slate-500">
+                Colisões frontais respondem pela maior proporção de fatalidades
+            </div>
+        </div>
+
+    </section>
+
+    <!-- Tabela Detalhada Causa vs. Risco de Letalidade -->
+    <section class="bento-card bento-item p-6">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-[#F1F5F9] dark:border-slate-800 gap-3">
+            <div>
+                <h2 class="text-sm font-bold text-slate-900 dark:text-white">Causas Determinantes vs. Risco de Letalidade</h2>
+                <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Relação direta entre volume de ocorrências e a probabilidade de vítimas fatais</p>
+            </div>
+            <span class="text-xs text-slate-500 dark:text-slate-400 font-semibold bg-slate-50 dark:bg-slate-800/80 px-3 py-1 rounded-full border border-slate-200 dark:border-slate-700">
+                Top 20 Causas Nacionais
+            </span>
+        </div>
+
+        <div class="overflow-x-auto mt-2">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="border-b border-[#F1F5F9] dark:border-slate-800">
+                        <th class="py-3 px-3 text-[11px] font-bold uppercase tracking-wider text-[#94A3B8] dark:text-slate-400 w-12">#</th>
+                        <th class="py-3 px-3 text-[11px] font-bold uppercase tracking-wider text-[#94A3B8] dark:text-slate-400">Causa do Acidente</th>
+                        <th class="py-3 px-3 text-[11px] font-bold uppercase tracking-wider text-[#94A3B8] dark:text-slate-400 text-right">Sinistros</th>
+                        <th class="py-3 px-3 text-[11px] font-bold uppercase tracking-wider text-[#94A3B8] dark:text-slate-400 text-right">Óbitos</th>
+                        <th class="py-3 px-3 text-[11px] font-bold uppercase tracking-wider text-[#94A3B8] dark:text-slate-400 text-right">Feridos Graves</th>
+                        <th class="py-3 px-3 text-[11px] font-bold uppercase tracking-wider text-[#94A3B8] dark:text-slate-400 text-right">Taxa Letalidade</th>
+                        <th class="py-3 px-3 text-[11px] font-bold uppercase tracking-wider text-[#94A3B8] dark:text-slate-400">Nível de Risco</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-[#F1F5F9] dark:divide-slate-800">
+                    {% for row in tabela_causas %}
+                    <tr class="hover:bg-[#F8FAFC] dark:hover:bg-slate-800/40 transition-colors">
+                        <td class="py-3.5 px-3 text-xs font-bold text-slate-400 dark:text-slate-500 tabular-nums">{{ row.posicao }}</td>
+                        <td class="py-3.5 px-3 font-semibold text-slate-800 dark:text-slate-200 text-xs">{{ row.causa }}</td>
+                        <td class="py-3.5 px-3 font-bold tabular-nums text-slate-900 dark:text-white text-xs text-right">{{ row.sinistros }}</td>
+                        <td class="py-3.5 px-3 font-bold tabular-nums text-rose-600 dark:text-rose-400 text-xs text-right">{{ row.mortos }}</td>
+                        <td class="py-3.5 px-3 font-medium tabular-nums text-amber-600 dark:text-amber-400 text-xs text-right">{{ row.feridos_graves }}</td>
+                        <td class="py-3.5 px-3 font-black tabular-nums text-slate-900 dark:text-white text-xs text-right">{{ row.letalidade }}</td>
+                        <td class="py-3.5 px-3">
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold {{ row.badge_class }}">
+                                {{ row.badge_texto }}
+                            </span>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="text-center py-10 text-xs text-slate-400 dark:text-slate-500">
+                            Nenhum registro encontrado para este filtro.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+</div>
+
+{{ chart_causas_data|json_script:"data-chart-causas" }}
+{{ chart_tipos_data|json_script:"data-chart-tipos" }}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function() {
+    function getThemeSafe() {
+        if (typeof window.getChartTheme === 'function') {
+            return window.getChartTheme();
+        }
+        const isDark = document.documentElement.classList.contains('dark');
+        return {
+            isDark: isDark,
+            textColor: isDark ? '#94A3B8' : '#64748B',
+            splitLineColor: isDark ? 'rgba(148, 163, 184, 0.12)' : '#F1F5F9',
+            axisLineColor: isDark ? '#334155' : '#E2E8F0',
+            inactiveBarColor: isDark ? '#1E293B' : '#94A3B8',
+            gaugeBgColor: isDark ? '#1E293B' : '#E2E8F0',
+            tooltipBg: isDark ? '#1E293B' : '#FFFFFF',
+            tooltipBorder: isDark ? '#334155' : '#E2E8F0',
+            tooltipText: isDark ? '#F1F5F9' : '#0F172A',
+        };
+    }
+
+    // =========================================================================
+    // RENDERIZADOR NATIVO SVG FALLBACK: BARRAS HORIZONTAIS
+    // =========================================================================
+    function renderFallbackHorizontalBarsSVG(container, labels, values, colorStart, colorEnd, tipTitle, theme) {
+        if (!container || !labels || labels.length === 0) return;
+        theme = theme || getThemeSafe();
+        container.innerHTML = '';
+        container.style.position = 'relative';
+
+        const W = 700;
+        const n = labels.length;
+        const H = Math.max(340, n * 27 + 35);
+        const padTop = 15;
+        const padBottom = 20;
+        const padLeft = 175;
+        const padRight = 55;
+        const plotW = W - padLeft - padRight;
+        const plotH = H - padTop - padBottom;
+        const maxVal = Math.max(...values, 1) * 1.15;
+        const rowH = plotH / n;
+        const barH = Math.min(15, rowH * 0.65);
+
+        let barsSVG = '';
+        let labelsSVG = '';
+        labels.forEach((label, idx) => {
+            const val = values[idx];
+            const barW = Math.max(3, (val / maxVal) * plotW);
+            const y = padTop + idx * rowH + (rowH - barH) / 2;
+            const textY = y + barH / 2 + 3.5;
+            const shortLabel = label.length > 25 ? label.slice(0, 24) + '...' : label;
+
+            barsSVG += `
+                <g class="h-bar-group" data-label="${label}" data-val="${val}">
+                    <rect x="${padLeft}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${barH.toFixed(1)}" 
+                          rx="4" ry="4" fill="url(#hBarGrad-${container.id})" class="cursor-pointer" />
+                    <text x="${(padLeft + barW + 8).toFixed(1)}" y="${textY.toFixed(1)}" font-size="10" font-weight="700" fill="${theme.textColor}" font-family="Inter, sans-serif">
+                        ${val.toLocaleString('pt-BR')}
+                    </text>
+                </g>
+            `;
+
+            labelsSVG += `
+                <text x="${padLeft - 10}" y="${textY.toFixed(1)}" text-anchor="end" font-size="10" font-weight="500" fill="${theme.textColor}" font-family="Inter, sans-serif">
+                    ${shortLabel}
+                </text>
+            `;
+        });
+
+        container.innerHTML = `
+            <svg viewBox="0 0 ${W} ${H}" width="100%" height="100%" style="overflow: visible; display: block;" preserveAspectRatio="none">
+                <defs>
+                    <linearGradient id="hBarGrad-${container.id}" x1="0" y1="0" x2="1" y2="0">
+                        <stop offset="0%" stop-color="${colorStart}" />
+                        <stop offset="100%" stop-color="${colorEnd}" />
+                    </linearGradient>
+                </defs>
+                <line x1="${padLeft}" y1="${padTop}" x2="${padLeft}" y2="${padTop + plotH}" stroke="${theme.axisLineColor}" stroke-width="1" />
+                ${barsSVG}
+                ${labelsSVG}
+            </svg>
+            <div id="fallback-tooltip-${container.id}" style="display:none; position:absolute; pointer-events:none; z-index:50; background:${theme.tooltipBg}; border:1px solid ${theme.tooltipBorder}; border-radius:8px; padding:8px 12px; color:${theme.tooltipText}; font-size:12px; font-family:Inter,sans-serif; box-shadow:0 8px 24px rgba(0,0,0,0.25);"></div>
+        `;
+
+        const tt = container.querySelector('#fallback-tooltip-' + container.id);
+        const groups = container.querySelectorAll('.h-bar-group');
+        groups.forEach(bg => {
+            bg.addEventListener('mouseenter', () => {
+                const label = bg.getAttribute('data-label');
+                const val = parseInt(bg.getAttribute('data-val'));
+                tt.innerHTML = `
+                    <div style="font-weight:bold; margin-bottom:4px;">${label}</div>
+                    <div style="display:flex; justify-content:space-between; gap:16px;">
+                        <span>${tipTitle}:</span>
+                        <b style="font-variant-numeric:tabular-nums;">${val.toLocaleString('pt-BR')}</b>
+                    </div>
+                `;
+                tt.style.display = 'block';
+            });
+            bg.addEventListener('mousemove', (e) => {
+                const bbox = container.getBoundingClientRect();
+                let x = e.clientX - bbox.left + 15;
+                let y = e.clientY - bbox.top - 20;
+                if (x + 180 > bbox.width) x = bbox.width - 190;
+                if (y < 0) y = 10;
+                tt.style.left = x + 'px';
+                tt.style.top = y + 'px';
+            });
+            bg.addEventListener('mouseleave', () => {
+                tt.style.display = 'none';
+            });
+        });
+    }
+
+    function initCausasCharts() {
+        window.echartsInstances = window.echartsInstances || [];
+        const theme = getThemeSafe();
+
+        // =========================================================================
+        // 1. GRÁFICO TOP 12 CAUSAS DETERMINANTES (BARRAS HORIZONTAIS)
+        // =========================================================================
+        try {
+            const elCausas = document.getElementById('chart-causas');
+            const dataCausasEl = document.getElementById('data-chart-causas');
+
+            if (elCausas && dataCausasEl) {
+                const causasData = JSON.parse(dataCausasEl.textContent);
+                if (causasData && causasData.causas && causasData.causas.length > 0) {
+                    let renderedCausas = false;
+
+                    if (typeof echarts !== 'undefined') {
+                        try {
+                            const existing = echarts.getInstanceByDom(elCausas);
+                            if (existing) {
+                                existing.dispose();
+                            }
+
+                            const chartCausas = echarts.init(elCausas, null, { renderer: 'svg' });
+                            window.echartsInstances.push(chartCausas);
+
+                            const optionCausas = {
+                                backgroundColor: 'transparent',
+                                tooltip: {
+                                    trigger: 'axis',
+                                    axisPointer: { type: 'shadow' },
+                                    backgroundColor: theme.tooltipBg,
+                                    borderColor: theme.tooltipBorder,
+                                    borderWidth: 1,
+                                    padding: [8, 12],
+                                    textStyle: { color: theme.tooltipText, fontSize: 11, fontFamily: 'Inter, sans-serif' }
+                                },
+                                grid: {
+                                    top: 15,
+                                    right: 35,
+                                    bottom: 15,
+                                    left: 170
+                                },
+                                xAxis: {
+                                    type: 'value',
+                                    splitLine: { lineStyle: { color: theme.splitLineColor, type: 'dashed' } },
+                                    axisLabel: { color: theme.textColor, fontSize: 10 }
+                                },
+                                yaxis: {
+                                    type: 'category',
+                                    data: causasData.causas,
+                                    axisLine: { lineStyle: { color: theme.axisLineColor } },
+                                    axisTick: { show: false },
+                                    axisLabel: {
+                                        color: theme.textColor,
+                                        fontSize: 10,
+                                        fontWeight: 500,
+                                        formatter: function(val) {
+                                            return val.length > 25 ? val.slice(0, 24) + '...' : val;
+                                        }
+                                    }
+                                },
+                                series: [
+                                    {
+                                        name: 'Ocorrências',
+                                        type: 'bar',
+                                        barWidth: '60%',
+                                        itemStyle: {
+                                            color: {
+                                                type: 'linear',
+                                                x: 0,
+                                                y: 0,
+                                                x2: 1,
+                                                y2: 0,
+                                                colorStops: [
+                                                    { offset: 0, color: '#60A5FA' },
+                                                    { offset: 1, color: '#2563EB' }
+                                                ]
+                                            },
+                                            borderRadius: [0, 6, 6, 0]
+                                        },
+                                        emphasis: {
+                                            focus: 'series',
+                                            itemStyle: {
+                                                color: '#1D4ED8',
+                                                shadowBlur: 10,
+                                                shadowColor: 'rgba(37, 99, 235, 0.4)'
+                                            }
+                                        },
+                                        data: causasData.totais
+                                    }
+                                ]
+                            };
+
+                            chartCausas.setOption(optionCausas);
+                            renderedCausas = true;
+                            setTimeout(() => chartCausas.resize(), 100);
+                            window.addEventListener('resize', () => chartCausas.resize());
+                            if (window.ResizeObserver) {
+                                new ResizeObserver(() => chartCausas.resize()).observe(elCausas);
+                            }
+                        } catch (errCausas) {
+                            console.warn('Erro ao inicializar chartCausas:', errCausas);
+                        }
+                    }
+
+                    if (!renderedCausas) {
+                        renderFallbackHorizontalBarsSVG(elCausas, causasData.causas, causasData.totais, '#60A5FA', '#2563EB', 'Sinistros', theme);
+                    }
+                }
+            }
+        } catch (e) {
+            console.error('Erro no gráfico Top 12 Causas:', e);
+        }
+
+        // =========================================================================
+        // 2. GRÁFICO TOP 10 TIPOS DE ACIDENTE / CINEMÁTICA
+        // =========================================================================
+        try {
+            const elTipos = document.getElementById('chart-tipos');
+            const dataTiposEl = document.getElementById('data-chart-tipos');
+
+            if (elTipos && dataTiposEl) {
+                const tiposData = JSON.parse(dataTiposEl.textContent);
+                if (tiposData && tiposData.tipos && tiposData.tipos.length > 0) {
+                    let renderedTipos = false;
+
+                    if (typeof echarts !== 'undefined') {
+                        try {
+                            const existing = echarts.getInstanceByDom(elTipos);
+                            if (existing) {
+                                existing.dispose();
+                            }
+
+                            const chartTipos = echarts.init(elTipos, null, { renderer: 'svg' });
+                            window.echartsInstances.push(chartTipos);
+
+                            const optionTipos = {
+                                backgroundColor: 'transparent',
+                                tooltip: {
+                                    trigger: 'axis',
+                                    axisPointer: { type: 'shadow' },
+                                    backgroundColor: theme.tooltipBg,
+                                    borderColor: theme.tooltipBorder,
+                                    borderWidth: 1,
+                                    padding: [8, 12],
+                                    textStyle: { color: theme.tooltipText, fontSize: 11, fontFamily: 'Inter, sans-serif' }
+                                },
+                                grid: {
+                                    top: 15,
+                                    right: 35,
+                                    bottom: 15,
+                                    left: 170
+                                },
+                                xAxis: {
+                                    type: 'value',
+                                    splitLine: { lineStyle: { color: theme.splitLineColor, type: 'dashed' } },
+                                    axisLabel: { color: theme.textColor, fontSize: 10 }
+                                },
+                                yaxis: {
+                                    type: 'category',
+                                    data: tiposData.tipos,
+                                    axisLine: { lineStyle: { color: theme.axisLineColor } },
+                                    axisTick: { show: false },
+                                    axisLabel: {
+                                        color: theme.textColor,
+                                        fontSize: 10,
+                                        fontWeight: 500,
+                                        formatter: function(val) {
+                                            return val.length > 25 ? val.slice(0, 24) + '...' : val;
+                                        }
+                                    }
+                                },
+                                series: [
+                                    {
+                                        name: 'Ocorrências',
+                                        type: 'bar',
+                                        barWidth: '60%',
+                                        itemStyle: {
+                                            color: {
+                                                type: 'linear',
+                                                x: 0,
+                                                y: 0,
+                                                x2: 1,
+                                                y2: 0,
+                                                colorStops: [
+                                                    { offset: 0, color: '#F472B6' },
+                                                    { offset: 1, color: '#EC4899' }
+                                                ]
+                                            },
+                                            borderRadius: [0, 6, 6, 0]
+                                        },
+                                        emphasis: {
+                                            focus: 'series',
+                                            itemStyle: {
+                                                color: '#DB2777',
+                                                shadowBlur: 10,
+                                                shadowColor: 'rgba(236, 72, 153, 0.4)'
+                                            }
+                                        },
+                                        data: tiposData.totais
+                                    }
+                                ]
+                            };
+
+                            chartTipos.setOption(optionTipos);
+                            renderedTipos = true;
+                            setTimeout(() => chartTipos.resize(), 100);
+                            window.addEventListener('resize', () => chartTipos.resize());
+                            if (window.ResizeObserver) {
+                                new ResizeObserver(() => chartTipos.resize()).observe(elTipos);
+                            }
+                        } catch (errTipos) {
+                            console.warn('Erro ao inicializar chartTipos:', errTipos);
+                        }
+                    }
+
+                    if (!renderedTipos) {
+                        renderFallbackHorizontalBarsSVG(elTipos, tiposData.tipos, tiposData.totais, '#F472B6', '#EC4899', 'Ocorrências', theme);
+                    }
+                }
+            }
+        } catch (e) {
+            console.error('Erro no gráfico Tipos de Colisão:', e);
+        }
+    }
+
+    if (document.readyState === 'complete') {
+        initCausasCharts();
+    } else {
+        window.addEventListener('load', initCausasCharts);
+    }
+
+    // Reagir a mudanças de tema (Dark / Light)
+    window.addEventListener('themeChanged', function() {
+        initCausasCharts();
+    });
+})();
+</script>
+{% endblock %}

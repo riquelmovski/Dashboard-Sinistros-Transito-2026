@@ -1,0 +1,847 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}PRF Analytics 2026 — Observatório de Sinistros Rodoviários{% endblock %}</title>
+
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+    <!-- Tailwind CSS (CDN) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+                    },
+                    colors: {
+                        saas: {
+                            blue: '#2563EB',
+                            'blue-hover': '#1D4ED8',
+                            'blue-subtle': '#EFF6FF',
+                            bg: '#F8F9FB',
+                            border: '#E5E7EB',
+                            text: '#0F172A',
+                            muted: '#64748B',
+                            subtle: '#94A3B8'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Anti-FOUC: Aplica classe dark antes de pintar o DOM para evitar tela branca -->
+    <script>
+        (function() {
+            try {
+                const savedTheme = localStorage.getItem('theme');
+                if (savedTheme === 'dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                    document.documentElement.classList.add('dark');
+                } else {
+                    document.documentElement.classList.remove('dark');
+                }
+            } catch (e) {}
+        })();
+
+        // Utilitário global para paleta adaptativa dos gráficos ECharts e SVG
+        window.getChartTheme = function() {
+            const isDark = document.documentElement.classList.contains('dark');
+            return {
+                isDark: isDark,
+                textColor: isDark ? '#94A3B8' : '#64748B',
+                titleColor: isDark ? '#F1F5F9' : '#0F172A',
+                splitLineColor: isDark ? 'rgba(148, 163, 184, 0.12)' : '#F1F5F9',
+                axisLineColor: isDark ? '#334155' : '#E2E8F0',
+                inactiveBarColor: isDark ? '#1E293B' : '#94A3B8',
+                gaugeBgColor: isDark ? '#1E293B' : '#E2E8F0',
+                cardBg: isDark ? '#111827' : '#FFFFFF',
+                tooltipBg: isDark ? 'rgba(15, 23, 42, 0.96)' : 'rgba(15, 23, 42, 0.94)',
+                tooltipBorder: isDark ? 'rgba(71, 85, 105, 0.6)' : 'rgba(255, 255, 255, 0.2)'
+            };
+        };
+    </script>
+
+    <!-- JSON Script Seguro com Todos os Municípios Únicos do Dataset (1.858 municípios) -->
+    {{ todos_municipios|json_script:"municipios-data" }}
+
+    <!-- Alpine.js Component Registration (before Alpine Core loads) -->
+    <script>
+        document.addEventListener('alpine:init', () => {
+            Alpine.data('dashboardApp', () => ({
+                drawerOpen: false,
+                searchOpen: false,
+                sidebarOpen: false,
+                searchQuery: '',
+                brSearch: '',
+                isDark: document.documentElement.classList.contains('dark'),
+                currentPath: '{{ current_path }}',
+                currentClass: '{{ classificacao_selecionada }}',
+                baseSearchItems: {{ itens_base_search_json|default:"[]"|safe }},
+                municipios: [],
+                totalMatchesCount: 0,
+                toggleTheme() {
+                    this.isDark = !this.isDark;
+                    if (this.isDark) {
+                        document.documentElement.classList.add('dark');
+                        localStorage.setItem('theme', 'dark');
+                    } else {
+                        document.documentElement.classList.remove('dark');
+                        localStorage.setItem('theme', 'light');
+                    }
+                    window.dispatchEvent(new Event('themeChanged'));
+                },
+                init() {
+                    this.isDark = document.documentElement.classList.contains('dark');
+
+                    // Carregar todos os municípios do script JSON gerado pelo Django
+                    const munScript = document.getElementById('municipios-data');
+                    if (munScript) {
+                        try {
+                            this.municipios = JSON.parse(munScript.textContent);
+                        } catch (e) {
+                            this.municipios = [];
+                        }
+                    }
+
+                    window.addEventListener('keydown', (e) => {
+                        if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+                            e.preventDefault();
+                            this.searchOpen = true;
+                        } else if (e.key === 'Escape') {
+                            this.searchOpen = false;
+                            this.drawerOpen = false;
+                        }
+                    });
+                    this.$watch('searchOpen', (val) => {
+                        if (val && this.$refs.searchInput) {
+                            setTimeout(() => this.$refs.searchInput.focus(), 50);
+                        }
+                    });
+                },
+                normalize(text) {
+                    if (!text) return '';
+                    return String(text)
+                        .toLowerCase()
+                        .normalize("NFD")
+                        .replace(/[\u0300-\u036f]/g, "")
+                        .trim();
+                },
+                get filteredSearchItems() {
+                    if (!this.searchQuery || !this.searchQuery.trim()) {
+                        this.totalMatchesCount = this.baseSearchItems.length;
+                        return this.baseSearchItems.slice(0, 15);
+                    }
+
+                    const q = this.normalize(this.searchQuery);
+                    const matches = [];
+
+                    // 1. Estados e Rodovias Federais
+                    for (let i = 0; i < this.baseSearchItems.length; i++) {
+                        const item = this.baseSearchItems[i];
+                        const titNorm = this.normalize(item.titulo);
+                        const keyNorm = this.normalize(item.keywords || '');
+                        if (titNorm.includes(q) || keyNorm.includes(q)) {
+                            matches.push(item);
+                        }
+                    }
+
+                    // 2. Todos os Municípios Reais do Dataset (1.858 cidades)
+                    for (let i = 0; i < this.municipios.length; i++) {
+                        const m = this.municipios[i];
+                        const munNorm = this.normalize(m.m);
+                        const ufNorm = m.uf.toLowerCase();
+                        const fullNorm = `${munNorm} ${ufNorm}`;
+                        
+                        if (munNorm.includes(q) || fullNorm.includes(q)) {
+                            const params = new URLSearchParams();
+                            params.set('uf', m.uf);
+                            params.set('municipio', m.m);
+                            if (this.currentClass) params.set('classificacao', this.currentClass);
+                            
+                            matches.push({
+                                tipo: 'Município',
+                                titulo: m.t || `${m.m} (${m.uf})`,
+                                meta: `${m.s.toLocaleString('pt-BR')} ocorrências`,
+                                url: `${this.currentPath}?${params.toString()}`
+                            });
+                        }
+                    }
+
+                    this.totalMatchesCount = matches.length;
+                    return matches.slice(0, 15);
+                }
+            }));
+        });
+    </script>
+
+    <!-- Alpine.js (Reatividade leve do Drawer e Modais) -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.5/dist/cdn.min.js"></script>
+
+    <!-- Apache ECharts & ApexCharts: CDN Primário (Cloudflare) + Fallbacks Automáticos (jsDelivr / unpkg) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.5.0/echarts.min.js"></script>
+    <script>
+        if (typeof echarts === 'undefined') {
+            document.write('<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"><\/script>');
+        }
+    </script>
+    <script>
+        if (typeof echarts === 'undefined') {
+            document.write('<script src="https://unpkg.com/echarts@5.5.0/dist/echarts.min.js"><\/script>');
+        }
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/apexcharts/3.48.0/apexcharts.min.js"></script>
+    <script>
+        if (typeof ApexCharts === 'undefined') {
+            document.write('<script src="https://cdn.jsdelivr.net/npm/apexcharts"><\/script>');
+        }
+    </script>
+
+    <!-- GSAP (Animações de entrada e transições fluidas) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+
+    <style>
+        :root {
+            --font-inter: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+        }
+
+        body {
+            font-family: var(--font-inter);
+            background-color: #F8F9FB;
+            color: #0F172A;
+            letter-spacing: -0.012em;
+        }
+
+        .dark body {
+            background-color: #0B0F19;
+            color: #F1F5F9;
+        }
+
+        .tabular-nums {
+            font-variant-numeric: tabular-nums;
+        }
+
+        /* 1. Garantir que todos os cards, tabelas e KPIs fiquem 100% visíveis por padrão (sem opacidade travada) */
+        .bento-card, .bento-item, .kpi-card, table, tr, td, th {
+            opacity: 1 !important;
+        }
+
+        /* Animação de entrada suave via CSS transform, sem nunca esconder o conteúdo */
+        @keyframes bentoSlideUp {
+            from {
+                transform: translateY(6px);
+            }
+            to {
+                transform: translateY(0);
+            }
+        }
+
+        .bento-item {
+            animation: bentoSlideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        /* Design System dos Cards Bento Grid (Light & Dark) */
+        .bento-card {
+            background-color: #FFFFFF;
+            border: 1px solid #E5E7EB;
+            border-radius: 16px;
+            box-shadow: 0 2px 8px rgba(15, 23, 42, 0.03);
+            transition: all 0.24s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .bento-card:hover {
+            transform: translateY(-2px);
+            border-color: #CBD5E1;
+            box-shadow: 0 10px 24px -4px rgba(15, 23, 42, 0.06);
+        }
+
+        .dark .bento-card {
+            background-color: #111827;
+            border-color: rgba(51, 65, 85, 0.6);
+            box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.35);
+        }
+
+        .dark .bento-card:hover {
+            border-color: rgba(100, 116, 139, 0.6);
+            box-shadow: 0 12px 28px -4px rgba(0, 0, 0, 0.5);
+        }
+
+        /* Drawer Backdrop Blur */
+        .drawer-backdrop {
+            background: rgba(15, 23, 42, 0.45);
+            backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
+        }
+
+        .dark .drawer-backdrop {
+            background: rgba(0, 0, 0, 0.7);
+        }
+
+        /* Scrollbar fina SaaS */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #CBD5E1;
+            border-radius: 9999px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94A3B8;
+        }
+
+        .dark ::-webkit-scrollbar-thumb {
+            background: #334155;
+        }
+        .dark ::-webkit-scrollbar-thumb:hover {
+            background: #475569;
+        }
+    </style>
+    {% block extra_head %}{% endblock %}
+</head>
+<body class="h-full flex overflow-hidden antialiased bg-[#F8F9FB] dark:bg-[#0B0F19] text-[#0F172A] dark:text-slate-100 transition-colors duration-200" x-data="dashboardApp">
+
+    <!-- ===================================================================== -->
+    <!-- 1. SIDEBAR FIXA À ESQUERDA (250px)                                    -->
+    <!-- ===================================================================== -->
+    <aside class="w-[250px] bg-white dark:bg-[#111827] border-r border-[#E5E7EB] dark:border-slate-800 flex flex-col justify-between shrink-0 z-40 transition-transform duration-300 md:translate-x-0 fixed md:static inset-y-0 left-0"
+           :class="sidebarOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full md:translate-x-0'">
+
+        <div>
+            <!-- Topo da Sidebar: Logo & Nome Institucional -->
+            <div class="h-[68px] px-5 flex items-center justify-between border-b border-[#E5E7EB] dark:border-slate-800">
+                <a href="{% url 'dashboard:index' %}{{ query_string }}" class="flex items-center gap-3 group">
+                    <div class="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-md shadow-blue-500/20 group-hover:scale-105 transition-transform">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-1.5">
+                            <span class="text-sm font-black tracking-tight text-slate-900 dark:text-white">PRF Analytics</span>
+                            <span class="text-[10px] font-bold px-1.5 py-0.2 rounded bg-blue-50 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">2026</span>
+                        </div>
+                        <p class="text-[10px] text-slate-400 dark:text-slate-500 font-medium">Observatório Rodoviário</p>
+                    </div>
+                </a>
+
+                <!-- Fechar sidebar no mobile -->
+                <button type="button" class="md:hidden text-slate-400 hover:text-slate-700 dark:hover:text-slate-200" @click="sidebarOpen = false">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+
+            <!-- Navegação Dividida em Grupos -->
+            <nav class="p-3.5 space-y-6">
+                
+                <!-- GRUPO 1: VISÃO GERAL -->
+                <div>
+                    <h3 class="px-3 text-[11px] font-bold uppercase tracking-wider text-[#94A3B8] mb-1.5">
+                        Visão Geral
+                    </h3>
+                    <div class="space-y-0.5">
+                        
+                        <!-- Item 1: Dashboard Principal -->
+                        <a href="{% url 'dashboard:index' %}{{ query_string }}" 
+                           class="flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold transition-all {% if active_tab == 'visao_geral' %}bg-[#EFF6FF] dark:bg-blue-950/50 text-[#2563EB] dark:text-blue-400 border-l-[3px] border-[#2563EB]{% else %}text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-slate-800/60 border-l-[3px] border-transparent{% endif %}">
+                            <svg class="w-4 h-4 shrink-0 {% if active_tab == 'visao_geral' %}text-[#2563EB] dark:text-blue-400{% else %}text-slate-400 dark:text-slate-500{% endif %}" fill="currentColor" viewBox="0 0 20 20">
+                                <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"/>
+                            </svg>
+                            <span>Dashboard Principal</span>
+                        </a>
+
+                        <!-- Item 2: Mapa Geoespacial -->
+                        <a href="{% url 'dashboard:mapa' %}{{ query_string }}" 
+                           class="flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold transition-all {% if active_tab == 'mapa' %}bg-[#EFF6FF] dark:bg-blue-950/50 text-[#2563EB] dark:text-blue-400 border-l-[3px] border-[#2563EB]{% else %}text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-slate-800/60 border-l-[3px] border-transparent{% endif %}">
+                            <svg class="w-4 h-4 shrink-0 {% if active_tab == 'mapa' %}text-[#2563EB] dark:text-blue-400{% else %}text-slate-400 dark:text-slate-500{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/>
+                            </svg>
+                            <span>Mapa Geoespacial</span>
+                        </a>
+
+                    </div>
+                </div>
+
+                <!-- GRUPO 2: ANÁLISE OPERACIONAL -->
+                <div>
+                    <h3 class="px-3 text-[11px] font-bold uppercase tracking-wider text-[#94A3B8] mb-1.5">
+                        Análise Operacional
+                    </h3>
+                    <div class="space-y-0.5">
+
+                        <!-- Item 3: Rodovias & Trechos -->
+                        <a href="{% url 'dashboard:rodovias' %}{{ query_string }}" 
+                           class="flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold transition-all {% if active_tab == 'rodovias' %}bg-[#EFF6FF] dark:bg-blue-950/50 text-[#2563EB] dark:text-blue-400 border-l-[3px] border-[#2563EB]{% else %}text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-slate-800/60 border-l-[3px] border-transparent{% endif %}">
+                            <svg class="w-4 h-4 shrink-0 {% if active_tab == 'rodovias' %}text-[#2563EB] dark:text-blue-400{% else %}text-slate-400 dark:text-slate-500{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
+                            </svg>
+                            <span>Rodovias & Trechos (BRs)</span>
+                        </a>
+
+                        <!-- Item 4: Causas & Fator Humano -->
+                        <a href="{% url 'dashboard:causas' %}{{ query_string }}" 
+                           class="flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold transition-all {% if active_tab == 'causas' %}bg-[#EFF6FF] dark:bg-blue-950/50 text-[#2563EB] dark:text-blue-400 border-l-[3px] border-[#2563EB]{% else %}text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-slate-800/60 border-l-[3px] border-transparent{% endif %}">
+                            <svg class="w-4 h-4 shrink-0 {% if active_tab == 'causas' %}text-[#2563EB] dark:text-blue-400{% else %}text-slate-400 dark:text-slate-500{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                            </svg>
+                            <span>Causas & Fator Humano</span>
+                        </a>
+
+                        <!-- Item 5: Perfil Temporal & Clima -->
+                        <a href="{% url 'dashboard:temporal' %}{{ query_string }}" 
+                           class="flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold transition-all {% if active_tab == 'temporal' %}bg-[#EFF6FF] dark:bg-blue-950/50 text-[#2563EB] dark:text-blue-400 border-l-[3px] border-[#2563EB]{% else %}text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-slate-800/60 border-l-[3px] border-transparent{% endif %}">
+                            <svg class="w-4 h-4 shrink-0 {% if active_tab == 'temporal' %}text-[#2563EB] dark:text-blue-400{% else %}text-slate-400 dark:text-slate-500{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            </svg>
+                            <span>Perfil Temporal & Clima</span>
+                        </a>
+
+                    </div>
+                </div>
+
+            </nav>
+        </div>
+
+        <!-- Card Institucional Azul-Royal com Gradiente na Base da Sidebar -->
+        <div class="p-3.5">
+            <div class="p-4 rounded-[16px] text-white shadow-lg relative overflow-hidden" 
+                 style="background: linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%);">
+                
+                <!-- Detalhe decorativo sutil -->
+                <div class="absolute -right-4 -bottom-4 w-20 h-20 rounded-full bg-white/10 blur-xl pointer-events-none"></div>
+
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-[10px] font-bold uppercase tracking-wider text-blue-100 bg-white/15 px-2 py-0.5 rounded-full">
+                        Base Oficial PRF
+                    </span>
+                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                </div>
+
+                <p class="text-xs font-bold leading-tight">
+                    Jan–Set 2026
+                </p>
+                <p class="text-[11px] text-blue-100/90 mt-0.5 tabular-nums">
+                    {{ total_base_oficial }} registros auditados
+                </p>
+
+                <!-- Botão Branco para abrir o painel de filtros avançados -->
+                <button type="button" 
+                        @click="drawerOpen = true"
+                        class="mt-3.5 w-full py-2 px-3 rounded-xl bg-white hover:bg-blue-50 text-blue-700 font-bold text-xs shadow-sm transition-all flex items-center justify-center gap-1.5 active:scale-95">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/>
+                    </svg>
+                    <span>Filtros Avançados</span>
+                </button>
+            </div>
+        </div>
+
+    </aside>
+
+    <!-- Overlay no Mobile para fechar a sidebar -->
+    <div x-show="sidebarOpen" 
+         x-transition:enter="transition-opacity ease-linear duration-300"
+         x-transition:enter-start="opacity-0"
+         x-transition:enter-end="opacity-100"
+         x-transition:leave="transition-opacity ease-linear duration-300"
+         x-transition:leave-start="opacity-100"
+         x-transition:leave-end="opacity-0"
+         @click="sidebarOpen = false" 
+         class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-30 md:hidden"></div>
+
+    <!-- ===================================================================== -->
+    <!-- 2. ÁREA PRINCIPAL: TOPBAR + CONTEÚDO                                  -->
+    <!-- ===================================================================== -->
+    <div class="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
+        
+        <!-- TOPBAR SUPERIOR (68px, Branca com borda inferior #E5E7EB) -->
+        <header class="h-[68px] bg-white dark:bg-[#111827] border-b border-[#E5E7EB] dark:border-slate-800 px-4 sm:px-6 flex items-center justify-between shrink-0 z-20">
+            
+            <!-- Lado Esquerdo: Botão Mobile + Campo de Busca ⌘K -->
+            <div class="flex items-center gap-3 flex-1 max-w-md">
+                
+                <!-- Toggle Mobile -->
+                <button type="button" class="md:hidden text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white p-1" @click="sidebarOpen = true">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+                </button>
+
+                <!-- Input de Busca Rápida ⌘K -->
+                <div class="relative w-full">
+                    <button type="button" 
+                            @click="searchOpen = true"
+                            class="w-full h-10 pl-9 pr-12 text-left bg-[#F8F9FB] dark:bg-[#1E293B]/70 hover:bg-slate-100 dark:hover:bg-slate-800 border border-[#E5E7EB] dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 rounded-xl text-xs text-slate-500 dark:text-slate-400 font-medium flex items-center justify-between transition-colors">
+                        <span class="flex items-center gap-2">
+                            <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                            </svg>
+                            <span>Buscar BR, município, causa...</span>
+                        </span>
+                        <kbd class="hidden sm:inline-flex items-center px-1.5 py-0.5 text-[10px] font-semibold text-slate-400 dark:text-slate-400 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded shadow-xs">
+                            ⌘K
+                        </kbd>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Lado Direito: Filtros Ativos, Botão Tema, Botão Filtros Avançados e Botão Exportar -->
+            <div class="flex items-center gap-2 sm:gap-3">
+                
+                <!-- Pílulas de Filtros Ativos -->
+                <div class="hidden lg:flex items-center gap-1.5">
+                    {% if uf_selecionada %}
+                    <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-blue-50 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 text-xs font-semibold">
+                        <span>UF: {{ uf_selecionada }}</span>
+                        <a href="{{ url_todos_estados }}" class="hover:text-blue-900 dark:hover:text-blue-100 font-bold ml-0.5">×</a>
+                    </span>
+                    {% endif %}
+
+                    {% if municipio_selecionado %}
+                    <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 text-xs font-semibold">
+                        <span>Município: {{ municipio_label }}</span>
+                        <a href="{{ url_todos_municipios }}" class="hover:text-indigo-900 dark:hover:text-indigo-100 font-bold ml-0.5" title="Remover filtro de município">×</a>
+                    </span>
+                    {% endif %}
+
+                    {% if classificacao_selecionada %}
+                    <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 text-xs font-semibold">
+                        <span>{{ classificacao_selecionada }}</span>
+                        <a href="{{ url_todas_classificacoes }}" class="hover:text-slate-900 dark:hover:text-white font-bold ml-0.5">×</a>
+                    </span>
+                    {% endif %}
+
+                    {% if br_selecionada %}
+                    <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 text-xs font-semibold">
+                        <span>{{ br_label }}</span>
+                        <a href="{{ url_todas_brs }}" class="hover:text-slate-900 dark:hover:text-white font-bold ml-0.5">×</a>
+                    </span>
+                    {% endif %}
+                </div>
+
+                <!-- Botão Alternador Modo Escuro (Dark Mode) -->
+                <button type="button" 
+                        @click="toggleTheme()" 
+                        class="h-10 w-10 rounded-xl bg-white dark:bg-[#1E293B] hover:bg-slate-50 dark:hover:bg-slate-800 border border-[#E5E7EB] dark:border-slate-700 text-slate-600 dark:text-slate-300 shadow-xs transition-colors flex items-center justify-center shrink-0 active:scale-95" 
+                        title="Alternar Modo Escuro / Claro">
+                    <svg x-show="isDark" class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+                    <svg x-show="!isDark" class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
+                </button>
+
+                <!-- Botão Branco "Filtros Avançados" (Abre Drawer) -->
+                <button type="button" 
+                        @click="drawerOpen = true"
+                        class="h-10 px-3.5 rounded-xl bg-white dark:bg-[#1E293B] hover:bg-slate-50 dark:hover:bg-slate-800 border border-[#E5E7EB] dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 text-slate-700 dark:text-slate-200 font-semibold text-xs shadow-xs transition-colors flex items-center gap-2">
+                    <svg class="w-4 h-4 text-slate-500 dark:text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/>
+                    </svg>
+                    <span>Filtros</span>
+                    {% if tem_filtro_ativo %}
+                    <span class="w-2 h-2 rounded-full bg-blue-600"></span>
+                    {% endif %}
+                </button>
+
+                <!-- Botão Primário Azul (#2563EB) "Exportar Relatório" -->
+                <a href="{% url 'dashboard:export_csv' %}{{ query_string }}" 
+                   class="h-10 px-4 rounded-xl bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold text-xs shadow-sm shadow-blue-500/20 transition-all flex items-center gap-2 active:scale-95"
+                   title="Exportar dados filtrados em CSV">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                    </svg>
+                    <span class="hidden sm:inline">Exportar Relatório</span>
+                    <span class="sm:hidden">Exportar</span>
+                </a>
+
+            </div>
+
+        </header>
+
+        <!-- ÁREA COM SCROLL DE CONTEÚDO PRINCIPAL -->
+        <main class="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-6">
+            <div class="max-w-[1400px] mx-auto space-y-6">
+                {% block content %}{% endblock %}
+            </div>
+        </main>
+
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- 3. DRAWER LATERAL DESLIZANTE (SLIDE-OVER PANEL DE FILTROS AVANÇADOS)  -->
+    <!-- ===================================================================== -->
+    <div x-show="drawerOpen" 
+         class="fixed inset-0 z-50 overflow-hidden" 
+         style="display: none;"
+         role="dialog" aria-modal="true">
+        
+        <!-- Fundo com Vidro Fosco (backdrop-filter: blur(4px)) -->
+        <div x-show="drawerOpen" 
+             x-transition:enter="ease-out duration-300"
+             x-transition:enter-start="opacity-0"
+             x-transition:enter-end="opacity-100"
+             x-transition:leave="ease-in duration-200"
+             x-transition:leave-start="opacity-100"
+             x-transition:leave-end="opacity-0"
+             class="fixed inset-0 drawer-backdrop" 
+             @click="drawerOpen = false"></div>
+
+        <div class="fixed inset-y-0 right-0 max-w-full flex pl-10">
+            <div x-show="drawerOpen" 
+                 x-transition:enter="transform transition ease-in-out duration-300"
+                 x-transition:enter-start="translate-x-full"
+                 x-transition:enter-end="translate-x-0"
+                 x-transition:leave="transform transition ease-in-out duration-200"
+                 x-transition:leave-start="translate-x-0"
+                 x-transition:leave-end="translate-x-full"
+                 class="w-screen max-w-[460px] bg-white dark:bg-[#111827] shadow-2xl flex flex-col justify-between border-l border-transparent dark:border-slate-800">
+
+                <!-- Cabeçalho do Drawer -->
+                <div class="p-5 border-b border-[#E5E7EB] dark:border-slate-800 flex items-center justify-between">
+                    <div>
+                        <h2 class="text-base font-extrabold text-slate-900 dark:text-white tracking-tight">Filtros Avançados</h2>
+                        <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Refine a base de sinistros por região, gravidade ou rodovia.</p>
+                    </div>
+                    <button type="button" @click="drawerOpen = false" class="p-1 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                    </button>
+                </div>
+
+                <!-- Conteúdo com Scroll do Drawer -->
+                <div class="flex-1 overflow-y-auto p-5 space-y-6">
+
+                    <!-- SEÇÃO 1: ESTADO POR REGIÃO DO BRASIL -->
+                    <div>
+                        <div class="flex items-center justify-between mb-2.5">
+                            <label class="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200">
+                                1. Estado por Região (UF)
+                            </label>
+                            <a href="{{ url_todos_estados }}" 
+                               class="text-xs font-semibold px-2.5 py-0.5 rounded-full {% if not uf_selecionada %}bg-blue-600 text-white{% else %}bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700{% endif %} transition">
+                                🇧🇷 Todo o Brasil
+                            </a>
+                        </div>
+
+                        <!-- 5 Grupos de Regiões -->
+                        <div class="space-y-3">
+                            {% for regiao, estados in regioes_brasil.items %}
+                            <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/70 dark:border-slate-700/60">
+                                <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-400 block mb-2">{{ regiao }}</span>
+                                <div class="flex flex-wrap gap-1.5">
+                                    {% for uf in estados %}
+                                    <a href="{% if uf.ativa %}{{ uf.url_remover }}{% else %}{{ uf.url }}{% endif %}" 
+                                       class="px-2.5 py-1 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 {% if uf.ativa %}bg-blue-600 text-white shadow-xs{% else %}bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-blue-50 dark:hover:bg-blue-900/40 hover:text-blue-600 dark:hover:text-blue-300 border border-slate-200 dark:border-slate-700{% endif %}">
+                                        <span>{{ uf.sigla }}</span>
+                                        {% if uf.ativa %}<span>✓</span>{% endif %}
+                                    </a>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <!-- SEÇÃO 2: CLASSIFICAÇÃO DO ACIDENTE -->
+                    <div>
+                        <div class="flex items-center justify-between mb-2.5">
+                            <label class="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200">
+                                2. Classificação do Acidente
+                            </label>
+                            {% if classificacao_selecionada %}
+                            <a href="{{ url_todas_classificacoes }}" class="text-[11px] font-semibold text-rose-600 dark:text-rose-400 hover:underline">
+                                Limpar classificação
+                            </a>
+                            {% endif %}
+                        </div>
+
+                        <div class="grid grid-cols-1 gap-2">
+                            <a href="{{ url_todas_classificacoes }}" 
+                               class="px-3.5 py-2.5 rounded-xl text-xs font-semibold flex items-center justify-between border transition {% if not classificacao_selecionada %}bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800 shadow-xs{% else %}bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50{% endif %}">
+                                <span class="flex items-center gap-2">
+                                    <span class="w-2.5 h-2.5 rounded-full bg-slate-400"></span>
+                                    Todas as Classificações
+                                </span>
+                                {% if not classificacao_selecionada %}<span>✓</span>{% endif %}
+                            </a>
+
+                            {% for c in lista_classificacoes %}
+                            <a href="{% if c.ativa %}{{ c.url_remover }}{% else %}{{ c.url }}{% endif %}" 
+                               class="px-3.5 py-2.5 rounded-xl text-xs font-semibold flex items-center justify-between border transition {% if c.ativa %}bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800 shadow-xs{% else %}bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50{% endif %}">
+                                <span class="flex items-center gap-2">
+                                    <span class="w-2.5 h-2.5 rounded-full {{ c.cor_dot }}"></span>
+                                    {{ c.nome }}
+                                </span>
+                                {% if c.ativa %}<span>✓</span>{% endif %}
+                            </a>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <!-- SEÇÃO 3: RODOVIA (BR) DINÂMICA -->
+                    <div>
+                        <div class="flex items-center justify-between mb-2">
+                            <label class="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200">
+                                3. Rodovia Federal (BR)
+                            </label>
+                            <span class="text-[11px] text-slate-400 dark:text-slate-400">
+                                {% if uf_selecionada %}Em {{ uf_selecionada }}{% else %}Top Nacionais{% endif %}
+                            </span>
+                        </div>
+
+                        <!-- Busca rápida de BR -->
+                        <div class="relative mb-2">
+                            <input type="text" x-model="brSearch" placeholder="Filtrar BR... (ex: 101)" 
+                                   class="w-full bg-slate-100 dark:bg-slate-800 border-none rounded-xl px-3 py-1.5 text-xs text-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-blue-500 placeholder:text-slate-400 dark:placeholder:text-slate-500">
+                        </div>
+
+                        <!-- Lista de BRs -->
+                        <div class="max-h-48 overflow-y-auto space-y-1 p-1 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-200 dark:border-slate-700">
+                            <a href="{{ url_todas_brs }}" 
+                               class="px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center justify-between {% if not br_selecionada %}bg-blue-600 text-white{% else %}text-slate-700 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700{% endif %} transition">
+                                <span>Todas as Rodovias</span>
+                                {% if not br_selecionada %}<span>✓</span>{% endif %}
+                            </a>
+
+                            {% for b in lista_brs %}
+                            <a href="{% if b.ativa %}{{ b.url_remover }}{% else %}{{ b.url }}{% endif %}" 
+                               x-show="!brSearch || '{{ b.label }}'.toLowerCase().includes(brSearch.toLowerCase()) || '{{ b.codigo }}'.includes(brSearch)"
+                               class="px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center justify-between {% if b.ativa %}bg-blue-600 text-white{% else %}text-slate-700 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700{% endif %} transition">
+                                <span>{{ b.label }}</span>
+                                {% if b.ativa %}<span>✓</span>{% endif %}
+                            </a>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Rodapé do Drawer -->
+                <div class="p-4 border-t border-[#E5E7EB] dark:border-slate-800 bg-slate-50 dark:bg-slate-900 flex items-center justify-between gap-3">
+                    <a href="{{ url_limpar_tudo }}" 
+                       class="text-xs font-semibold text-rose-600 dark:text-rose-400 hover:text-rose-700 dark:hover:text-rose-300 transition">
+                        Limpar Todos os Filtros
+                    </a>
+                    <button type="button" 
+                            @click="drawerOpen = false" 
+                            class="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-sm transition">
+                        Fechar & Aplicar
+                    </button>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- 4. MODAL DE BUSCA RÁPIDA ⌘K                                          -->
+    <!-- ===================================================================== -->
+    <div x-show="searchOpen" 
+         class="fixed inset-0 z-50 overflow-y-auto p-4 sm:p-6 md:p-20" 
+         style="display: none;"
+         role="dialog" aria-modal="true">
+        
+        <div class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm" @click="searchOpen = false"></div>
+
+        <div class="relative mx-auto max-w-xl bg-white dark:bg-[#111827] rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden"
+             @click.away="searchOpen = false">
+            
+            <div class="p-3.5 border-b border-slate-100 dark:border-slate-800 flex items-center gap-3">
+                <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                <input type="text" 
+                       x-model="searchQuery" 
+                       x-ref="searchInput"
+                       placeholder="Digite um município (ex: João Pessoa, Curitiba), rodovia ou estado..." 
+                       class="w-full bg-transparent border-none text-sm text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-0">
+                <kbd class="text-[10px] font-bold text-slate-400 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded">ESC</kbd>
+            </div>
+
+            <!-- Contador Dinâmico de Resultados Encontrados -->
+            <div class="px-3.5 py-1.5 bg-slate-50 dark:bg-slate-800/60 border-b border-slate-100 dark:border-slate-800 text-[11px] text-slate-500 dark:text-slate-400 flex items-center justify-between"
+                 x-show="searchQuery && searchQuery.trim().length > 0">
+                <span x-show="totalMatchesCount > 15">
+                    Exibindo 15 de <strong class="text-slate-800 dark:text-slate-200 font-bold" x-text="totalMatchesCount.toLocaleString('pt-BR')"></strong> resultados encontrados
+                </span>
+                <span x-show="totalMatchesCount > 0 && totalMatchesCount <= 15">
+                    <strong class="text-slate-800 dark:text-slate-200 font-bold" x-text="totalMatchesCount"></strong> resultado(s) encontrado(s)
+                </span>
+                <span x-show="totalMatchesCount === 0" class="text-rose-500 font-medium">
+                    Nenhum resultado para "<span x-text="searchQuery"></span>"
+                </span>
+                <span class="text-[10px] text-slate-400">1.858 municípios mapeados</span>
+            </div>
+
+            <!-- Resultados -->
+            <div class="max-h-80 overflow-y-auto p-2 space-y-1">
+                <template x-for="item in filteredSearchItems" :key="item.titulo + (item.tipo || '')">
+                    <a :href="item.url" 
+                       class="flex items-center justify-between p-2.5 rounded-xl hover:bg-blue-50 dark:hover:bg-slate-800/80 text-slate-800 dark:text-slate-200 hover:text-blue-700 dark:hover:text-blue-400 text-xs font-medium transition group">
+                        <div class="flex items-center gap-2.5">
+                            <span class="w-6 h-6 rounded-lg bg-slate-100 dark:bg-slate-800 group-hover:bg-blue-100 dark:group-hover:bg-blue-950/60 flex items-center justify-center text-[10px] font-bold text-slate-600 dark:text-slate-300 group-hover:text-blue-700 dark:group-hover:text-blue-400" 
+                                  x-text="item.tipo === 'Município' ? 'M' : item.tipo[0]"></span>
+                            <span x-text="item.titulo"></span>
+                        </div>
+                        <span class="text-[11px] text-slate-400 dark:text-slate-400 group-hover:text-blue-500 font-semibold tabular-nums" x-text="item.meta"></span>
+                    </a>
+                </template>
+                <div x-show="totalMatchesCount === 0 && searchQuery && searchQuery.trim().length > 0" class="py-8 text-center text-xs text-slate-400 dark:text-slate-500">
+                    Nenhum município, estado ou rodovia corresponde ao termo digitado.
+                </div>
+            </div>
+
+            <div class="px-4 py-2.5 bg-slate-50 dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 text-[11px] text-slate-400 dark:text-slate-400 flex items-center justify-between">
+                <span>Dica: Pressione <b>⌘K</b> a qualquer momento para abrir esta busca.</span>
+                <span>PRF Analytics</span>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Animação Global e Inicialização de Redimensionamento dos Gráficos -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Count-Up suave nos Números dos 4 KPIs Principais (sem afetar opacidade)
+            document.querySelectorAll('.kpi-number').forEach(function(el) {
+                const rawVal = parseFloat(el.getAttribute('data-value')) || 0;
+                const isPercent = el.getAttribute('data-is-percent') === 'true';
+                if (typeof gsap !== 'undefined') {
+                    const target = { val: 0 };
+                    gsap.to(target, {
+                        val: rawVal,
+                        duration: 1.0,
+                        ease: 'power2.out',
+                        onUpdate: function() {
+                            if (isPercent) {
+                                el.textContent = target.val.toFixed(1).replace('.', ',') + '%';
+                            } else {
+                                el.textContent = Math.round(target.val).toLocaleString('pt-BR');
+                            }
+                        }
+                    });
+                }
+            });
+
+            // Listener Global para Redimensionar Gráficos ECharts
+            function resizeAllCharts() {
+                if (window.echartsInstances && window.echartsInstances.length > 0) {
+                    window.echartsInstances.forEach(function(chart) {
+                        if (chart && typeof chart.resize === 'function') {
+                            chart.resize();
+                        }
+                    });
+                }
+            }
+
+            window.addEventListener('resize', resizeAllCharts);
+            window.addEventListener('load', resizeAllCharts);
+            setTimeout(resizeAllCharts, 150);
+            setTimeout(resizeAllCharts, 500);
+        });
+    </script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,464 @@
+{% extends 'dashboard/base.html' %}
+
+{% block title %}Rodovias & Trechos Críticos — PRF Analytics 2026{% endblock %}
+
+{% block content %}
+<div class="space-y-6" x-data="{ tableSearch: '' }">
+
+    <!-- Cabeçalho da Página -->
+    <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-2">
+        <div>
+            <div class="flex items-center gap-2 mb-1">
+                <span class="text-[11px] font-bold uppercase tracking-wider text-blue-700 bg-blue-50 border border-blue-200 px-2.5 py-0.5 rounded-full">
+                    Módulo Operacional
+                </span>
+                <span class="text-slate-300">•</span>
+                <span class="text-xs text-slate-500 font-medium">
+                    {{ uf_label }}{% if municipio_selecionado %} • {{ municipio_label }}{% endif %}
+                </span>
+            </div>
+            <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+                Rodovias & Trechos Críticos (BRs)
+            </h1>
+            <p class="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+                Diagnóstico de criticidade viária, comparação por tipologia de pista e ranking completo das rodovias federais.
+            </p>
+        </div>
+
+        <div class="flex items-center gap-2">
+            <span class="px-3 py-1.5 rounded-xl bg-white dark:bg-[#1E293B] border border-[#E5E7EB] dark:border-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-300 shadow-xs">
+                {{ tabela_rodovias|length }} Rodovias no Recorte
+            </span>
+        </div>
+    </div>
+
+    <!-- ================================================================= -->
+    <!-- CARD DE INSIGHTS INTELIGENTES (DIAGNÓSTICO AUTOMÁTICO PANDAS)     -->
+    <!-- ================================================================= -->
+    {% if insights_inteligentes %}
+    <section class="bento-card bento-item p-5 border-l-4 border-l-blue-600 dark:border-l-blue-500 relative overflow-hidden">
+        <!-- Cabeçalho do Card -->
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-3.5 mb-4 border-b border-[#F1F5F9] dark:border-slate-800/80 gap-2">
+            <div class="flex items-center gap-2.5">
+                <div class="w-8 h-8 rounded-xl bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                    </svg>
+                </div>
+                <div>
+                    <h2 class="text-sm font-black tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
+                        <span>Diagnóstico Operacional Inteligente</span>
+                    </h2>
+                    <p class="text-[11px] text-slate-500 dark:text-slate-400">Padrões viários detectados dinamicamente via análise estatística do recorte ativo</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                    <span class="w-1.5 h-1.5 rounded-full bg-blue-600 dark:bg-blue-400 animate-pulse"></span>
+                    Diagnóstico Automático • Pandas
+                </span>
+            </div>
+        </div>
+
+        {% if insights_inteligentes.vazio %}
+        <div class="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/60 dark:border-slate-800 text-xs text-slate-600 dark:text-slate-400 flex items-center gap-3">
+            <svg class="w-5 h-5 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            <span>{{ insights_inteligentes.mensagem }}</span>
+        </div>
+        {% else %}
+        <!-- Grid de 3 Colunas de Insights -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {% for item in insights_inteligentes.itens %}
+            <div class="p-4 rounded-xl bg-slate-50/70 dark:bg-[#1E293B]/50 border border-slate-200/60 dark:border-slate-800/80 hover:border-blue-300 dark:hover:border-blue-700 transition-colors flex flex-col justify-between">
+                <div>
+                    <div class="flex items-center justify-between gap-2 mb-2">
+                        <span class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">{{ item.titulo }}</span>
+                        <span class="px-2 py-0.5 rounded-md text-[10px] font-bold {{ item.badge_cor }}">
+                            {{ item.badge }}
+                        </span>
+                    </div>
+                    <div class="text-xs font-semibold text-slate-800 dark:text-slate-200 leading-relaxed mb-2">
+                        {{ item.destaque }}
+                    </div>
+                    <p class="text-xs text-slate-600 dark:text-slate-400 leading-normal">
+                        {{ item.descricao|safe }}
+                    </p>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </section>
+    {% endif %}
+
+    <!-- Gráfico ECharts de Infraestrutura: Tipo de Pista -->
+    <section class="bento-card bento-item p-6">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-[#F1F5F9] dark:border-slate-800 gap-3">
+            <div>
+                <h2 class="text-sm font-bold text-slate-900 dark:text-white">Severidade por Tipo de Pista</h2>
+                <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Impacto do traçado viário na frequência de ocorrências e na letalidade</p>
+            </div>
+            <div class="flex items-center gap-3 text-xs">
+                <span class="inline-flex items-center gap-1.5 font-semibold text-slate-700 dark:text-slate-300">
+                    <span class="w-2.5 h-2.5 rounded-sm bg-blue-600"></span> Sinistros
+                </span>
+                <span class="inline-flex items-center gap-1.5 font-semibold text-slate-700 dark:text-slate-300">
+                    <span class="w-2.5 h-2.5 rounded-sm bg-rose-500"></span> Óbitos
+                </span>
+                <span class="inline-flex items-center gap-1.5 font-semibold text-slate-700 dark:text-slate-300">
+                    <span class="w-2.5 h-2.5 rounded-sm bg-amber-500"></span> Feridos Graves
+                </span>
+            </div>
+        </div>
+
+        <div class="w-full mt-2" id="chart-pista" style="width: 100%; height: 340px; min-height: 340px; display: block;"></div>
+    </section>
+
+    <!-- Tabela Completa de Ranking das Rodovias -->
+    <section class="bento-card bento-item p-6">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-[#F1F5F9] dark:border-slate-800 gap-3">
+            <div>
+                <h2 class="text-sm font-bold text-slate-900 dark:text-white">Ranking Completo de Rodovias Federais</h2>
+                <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Ordenado pelo volume de ocorrências. Clique na BR para filtrar exclusivamente por ela.</p>
+            </div>
+
+            <!-- Campo de Busca em Tempo Real na Tabela -->
+            <div class="relative w-full sm:w-64">
+                <input type="text" 
+                       x-model="tableSearch" 
+                       placeholder="Filtrar por BR ou município..." 
+                       class="w-full bg-[#F8F9FB] dark:bg-slate-800/80 border border-[#E5E7EB] dark:border-slate-700 rounded-xl px-3 py-1.5 text-xs text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+        </div>
+
+        <div class="overflow-x-auto mt-2">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="border-b border-[#F1F5F9] dark:border-slate-800">
+                        <th class="py-3 px-3 text-[11px] font-bold uppercase tracking-wider text-[#94A3B8] dark:text-slate-400 w-12">#</th>
+                        <th class="py-3 px-3 text-[11px] font-bold uppercase tracking-wider text-[#94A3B8] dark:text-slate-400">Rodovia</th>
+                        <th class="py-3 px-3 text-[11px] font-bold uppercase tracking-wider text-[#94A3B8] dark:text-slate-400">Município Mais Crítico</th>
+                        <th class="py-3 px-3 text-[11px] font-bold uppercase tracking-wider text-[#94A3B8] dark:text-slate-400 text-right">Sinistros</th>
+                        <th class="py-3 px-3 text-[11px] font-bold uppercase tracking-wider text-[#94A3B8] dark:text-slate-400 text-right">Óbitos</th>
+                        <th class="py-3 px-3 text-[11px] font-bold uppercase tracking-wider text-[#94A3B8] dark:text-slate-400 text-right">Feridos Graves</th>
+                        <th class="py-3 px-3 text-[11px] font-bold uppercase tracking-wider text-[#94A3B8] dark:text-slate-400">Índice de Letalidade</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-[#F1F5F9] dark:divide-slate-800">
+                    {% for row in tabela_rodovias %}
+                    <tr class="hover:bg-[#F8FAFC] dark:hover:bg-slate-800/40 transition-colors group"
+                        x-show="!tableSearch || '{{ row.br_formatada }}'.toLowerCase().includes(tableSearch.toLowerCase()) || '{{ row.municipio }}'.toLowerCase().includes(tableSearch.toLowerCase())">
+                        <td class="py-3.5 px-3 text-xs font-bold text-slate-400 dark:text-slate-500 tabular-nums">{{ row.posicao }}</td>
+                        <td class="py-3.5 px-3">
+                            <a href="?uf={{ uf_selecionada }}&classificacao={{ classificacao_selecionada }}&br={{ row.br_codigo }}"
+                               class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold bg-blue-50 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 group-hover:bg-blue-600 group-hover:text-white transition"
+                               title="Filtrar por esta BR">
+                                {{ row.br_formatada }}
+                            </a>
+                        </td>
+                        <td class="py-3.5 px-3">
+                            <div class="font-semibold text-slate-800 dark:text-slate-200 text-xs">{{ row.municipio }}</div>
+                            <div class="text-[10px] text-slate-400 dark:text-slate-500">{{ row.sinistros_mun }} sinistros registrados</div>
+                        </td>
+                        <td class="py-3.5 px-3 font-bold tabular-nums text-slate-900 dark:text-white text-xs text-right">{{ row.sinistros }}</td>
+                        <td class="py-3.5 px-3 font-bold tabular-nums text-rose-600 dark:text-rose-400 text-xs text-right">{{ row.mortos }}</td>
+                        <td class="py-3.5 px-3 font-medium tabular-nums text-amber-600 dark:text-amber-400 text-xs text-right">{{ row.feridos_graves }}</td>
+                        <td class="py-3.5 px-3">
+                            <div class="flex items-center gap-2.5">
+                                <span class="font-bold tabular-nums text-xs {% if row.letalidade_num > 8 %}text-rose-600 dark:text-rose-400{% else %}text-slate-800 dark:text-slate-200{% endif %} min-w-[36px]">
+                                    {{ row.letalidade }}
+                                </span>
+                                <div class="w-20 h-1.5 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
+                                    <div class="h-full rounded-full {% if row.letalidade_num > 10 %}bg-rose-500{% elif row.letalidade_num > 7 %}bg-amber-500{% else %}bg-blue-600{% endif %}" 
+                                         style="width: {{ row.letalidade_width }}%;"></div>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="text-center py-10 text-xs text-slate-400 dark:text-slate-500">
+                            Nenhuma rodovia encontrada para os filtros atuais.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+</div>
+
+{{ chart_pista_data|json_script:"data-chart-pista" }}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function() {
+    function getThemeSafe() {
+        if (typeof window.getChartTheme === 'function') {
+            return window.getChartTheme();
+        }
+        const isDark = document.documentElement.classList.contains('dark');
+        return {
+            isDark: isDark,
+            textColor: isDark ? '#94A3B8' : '#64748B',
+            splitLineColor: isDark ? 'rgba(148, 163, 184, 0.12)' : '#F1F5F9',
+            axisLineColor: isDark ? '#334155' : '#E2E8F0',
+            inactiveBarColor: isDark ? '#1E293B' : '#94A3B8',
+            gaugeBgColor: isDark ? '#1E293B' : '#E2E8F0',
+            tooltipBg: isDark ? '#1E293B' : '#FFFFFF',
+            tooltipBorder: isDark ? '#334155' : '#E2E8F0',
+            tooltipText: isDark ? '#F1F5F9' : '#0F172A',
+        };
+    }
+
+    // =========================================================================
+    // RENDERIZADOR NATIVO SVG FALLBACK: SEVERIDADE POR TIPO DE PISTA
+    // =========================================================================
+    function renderFallbackPistaSVG(container, data, theme) {
+        if (!container || !data || !data.categorias || data.categorias.length === 0) return;
+        theme = theme || getThemeSafe();
+        container.innerHTML = '';
+        container.style.position = 'relative';
+
+        const W = 800;
+        const H = 340;
+        const padTop = 35;
+        const padBottom = 45;
+        const padLeft = 65;
+        const padRight = 30;
+        const plotW = W - padLeft - padRight;
+        const plotH = H - padTop - padBottom;
+        const bottomY = padTop + plotH;
+
+        const allValues = [
+            ...data.sinistros,
+            ...data.obitos,
+            ...data.feridos_graves
+        ];
+        const maxVal = Math.max(...allValues, 1) * 1.15;
+        const numGroups = data.categorias.length;
+        const groupW = plotW / numGroups;
+        const barW = Math.min(42, groupW * 0.22);
+        const gap = 8;
+
+        let gridLinesSVG = '';
+        const numTicks = 5;
+        for (let i = 0; i <= numTicks; i++) {
+            const valTick = Math.round((maxVal / numTicks) * i);
+            const yTick = bottomY - (valTick / maxVal) * plotH;
+            gridLinesSVG += `
+                <line x1="${padLeft}" y1="${yTick.toFixed(1)}" x2="${W - padRight}" y2="${yTick.toFixed(1)}" stroke="${theme.splitLineColor}" stroke-dasharray="4,4" stroke-width="1" />
+                <text x="${padLeft - 10}" y="${(yTick + 4).toFixed(1)}" text-anchor="end" font-size="10" fill="${theme.textColor}" font-family="Inter, sans-serif">${valTick.toLocaleString('pt-BR')}</text>
+            `;
+        }
+
+        let barsSVG = '';
+        let labelsSVG = '';
+        const series = [
+            { name: 'Sinistros', key: 'sinistros', color: '#2563EB', hoverColor: '#1D4ED8' },
+            { name: 'Óbitos', key: 'obitos', color: '#EF4444', hoverColor: '#DC2626' },
+            { name: 'Feridos Graves', key: 'feridos_graves', color: '#F59E0B', hoverColor: '#D97706' }
+        ];
+
+        data.categorias.forEach((cat, gIdx) => {
+            const groupCenterX = padLeft + gIdx * groupW + groupW / 2;
+            const totalBarsW = 3 * barW + 2 * gap;
+            const groupStartX = groupCenterX - totalBarsW / 2;
+
+            series.forEach((s, sIdx) => {
+                const val = data[s.key][gIdx];
+                const barH = Math.max(3, (val / maxVal) * plotH);
+                const bx = groupStartX + sIdx * (barW + gap);
+                const by = bottomY - barH;
+
+                barsSVG += `
+                    <g class="bar-group" data-cat="${cat}" data-series="${s.name}" data-val="${val}" data-basecolor="${s.color}" data-hovercolor="${s.hoverColor}">
+                        <rect x="${bx.toFixed(1)}" y="${by.toFixed(1)}" width="${barW.toFixed(1)}" height="${barH.toFixed(1)}" 
+                              rx="5" ry="5" fill="${s.color}" class="cursor-pointer transition-all duration-150" />
+                        <text x="${(bx + barW / 2).toFixed(1)}" y="${(by - 6).toFixed(1)}" text-anchor="middle" font-size="10" font-weight="700" fill="${theme.textColor}" font-family="Inter, sans-serif">
+                            ${val > 999 ? (val / 1000).toFixed(1) + 'k' : val}
+                        </text>
+                    </g>
+                `;
+            });
+
+            labelsSVG += `
+                <text x="${groupCenterX.toFixed(1)}" y="${H - 14}" text-anchor="middle" font-size="12" font-weight="700" fill="${theme.textColor}" font-family="Inter, sans-serif">
+                    Pista ${cat}
+                </text>
+            `;
+        });
+
+        container.innerHTML = `
+            <svg viewBox="0 0 ${W} ${H}" width="100%" height="100%" style="overflow: visible; display: block;" preserveAspectRatio="none">
+                ${gridLinesSVG}
+                <line x1="${padLeft}" y1="${bottomY}" x2="${W - padRight}" y2="${bottomY}" stroke="${theme.axisLineColor}" stroke-width="1" />
+                ${barsSVG}
+                ${labelsSVG}
+            </svg>
+            <div id="fallback-tooltip-pista" style="display:none; position:absolute; pointer-events:none; z-index:50; background:${theme.tooltipBg}; border:1px solid ${theme.tooltipBorder}; border-radius:8px; padding:8px 12px; color:${theme.tooltipText}; font-size:12px; font-family:Inter,sans-serif; box-shadow:0 8px 24px rgba(0,0,0,0.25);"></div>
+        `;
+
+        const tt = container.querySelector('#fallback-tooltip-pista');
+        const barGroups = container.querySelectorAll('.bar-group');
+        barGroups.forEach(bg => {
+            const rect = bg.querySelector('rect');
+            bg.addEventListener('mouseenter', () => {
+                const cat = bg.getAttribute('data-cat');
+                const sName = bg.getAttribute('data-series');
+                const val = parseInt(bg.getAttribute('data-val'));
+                const hoverColor = bg.getAttribute('data-hovercolor');
+                rect.setAttribute('fill', hoverColor);
+
+                tt.innerHTML = `
+                    <div style="font-weight:bold; margin-bottom:4px;">Pista ${cat}</div>
+                    <div style="display:flex; justify-content:space-between; gap:16px; margin:2px 0;">
+                        <span>${sName}:</span>
+                        <b style="font-variant-numeric:tabular-nums;">${val.toLocaleString('pt-BR')}</b>
+                    </div>
+                `;
+                tt.style.display = 'block';
+            });
+            bg.addEventListener('mousemove', (e) => {
+                const bbox = container.getBoundingClientRect();
+                let x = e.clientX - bbox.left + 15;
+                let y = e.clientY - bbox.top - 20;
+                if (x + 160 > bbox.width) x = bbox.width - 170;
+                if (y < 0) y = 10;
+                tt.style.left = x + 'px';
+                tt.style.top = y + 'px';
+            });
+            bg.addEventListener('mouseleave', () => {
+                const baseColor = bg.getAttribute('data-basecolor');
+                rect.setAttribute('fill', baseColor);
+                tt.style.display = 'none';
+            });
+        });
+    }
+
+    function initRodoviasCharts() {
+        window.echartsInstances = window.echartsInstances || [];
+        const theme = getThemeSafe();
+
+        try {
+            const elPista = document.getElementById('chart-pista');
+            const dataPistaEl = document.getElementById('data-chart-pista');
+
+            if (elPista && dataPistaEl) {
+                const pistaData = JSON.parse(dataPistaEl.textContent);
+                if (pistaData && pistaData.categorias && pistaData.categorias.length > 0) {
+                    let rendered = false;
+
+                    if (typeof echarts !== 'undefined') {
+                        try {
+                            const existing = echarts.getInstanceByDom(elPista);
+                            if (existing) {
+                                existing.dispose();
+                            }
+
+                            const chartPista = echarts.init(elPista, null, { renderer: 'svg' });
+                            window.echartsInstances.push(chartPista);
+
+                            const optionPista = {
+                                backgroundColor: 'transparent',
+                                tooltip: {
+                                    trigger: 'axis',
+                                    axisPointer: { type: 'shadow' },
+                                    backgroundColor: theme.tooltipBg,
+                                    borderColor: theme.tooltipBorder,
+                                    borderWidth: 1,
+                                    padding: [10, 14],
+                                    textStyle: { color: theme.tooltipText, fontSize: 12, fontFamily: 'Inter, sans-serif' }
+                                },
+                                grid: {
+                                    top: 25,
+                                    right: 20,
+                                    bottom: 25,
+                                    left: 55
+                                },
+                                xAxis: {
+                                    type: 'category',
+                                    data: pistaData.categorias.map(c => 'Pista ' + c),
+                                    axisLine: { lineStyle: { color: theme.axisLineColor } },
+                                    axisTick: { show: false },
+                                    axisLabel: { color: theme.textColor, fontSize: 11, fontWeight: 600 }
+                                },
+                                yaxis: {
+                                    type: 'value',
+                                    splitLine: { lineStyle: { color: theme.splitLineColor, type: 'dashed' } },
+                                    axisLabel: { color: theme.textColor, fontSize: 10 }
+                                },
+                                series: [
+                                    {
+                                        name: 'Sinistros',
+                                        type: 'bar',
+                                        barWidth: '22%',
+                                        itemStyle: {
+                                            color: '#2563EB',
+                                            borderRadius: [6, 6, 0, 0]
+                                        },
+                                        emphasis: { focus: 'series' },
+                                        data: pistaData.sinistros
+                                    },
+                                    {
+                                        name: 'Óbitos',
+                                        type: 'bar',
+                                        barWidth: '22%',
+                                        itemStyle: {
+                                            color: '#EF4444',
+                                            borderRadius: [6, 6, 0, 0]
+                                        },
+                                        emphasis: { focus: 'series' },
+                                        data: pistaData.obitos
+                                    },
+                                    {
+                                        name: 'Feridos Graves',
+                                        type: 'bar',
+                                        barWidth: '22%',
+                                        itemStyle: {
+                                            color: '#F59E0B',
+                                            borderRadius: [6, 6, 0, 0]
+                                        },
+                                        emphasis: { focus: 'series' },
+                                        data: pistaData.feridos_graves
+                                    }
+                                ]
+                            };
+
+                            chartPista.setOption(optionPista);
+                            rendered = true;
+                            setTimeout(() => chartPista.resize(), 100);
+                            window.addEventListener('resize', () => chartPista.resize());
+                            if (window.ResizeObserver) {
+                                new ResizeObserver(() => chartPista.resize()).observe(elPista);
+                            }
+                        } catch (pistaErr) {
+                            console.warn('Erro ao inicializar chartPista com ECharts:', pistaErr);
+                        }
+                    }
+
+                    if (!rendered) {
+                        renderFallbackPistaSVG(elPista, pistaData, theme);
+                    }
+                }
+            }
+        } catch (e) {
+            console.error('Erro no gráfico Severidade por Tipo de Pista:', e);
+        }
+    }
+
+    if (document.readyState === 'complete') {
+        initRodoviasCharts();
+    } else {
+        window.addEventListener('load', initRodoviasCharts);
+    }
+
+    // Reagir a mudanças de tema (Dark / Light)
+    window.addEventListener('themeChanged', function() {
+        initRodoviasCharts();
+    });
+})();
+</script>
+{% endblock %}

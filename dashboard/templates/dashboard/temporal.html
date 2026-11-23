@@ -1,0 +1,1085 @@
+{% extends 'dashboard/base.html' %}
+
+{% block title %}Perfil Temporal & Clima — PRF Analytics 2026{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+    <!-- Cabeçalho da Página -->
+    <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-2">
+        <div>
+            <div class="flex items-center gap-2 mb-1">
+                <span class="text-[11px] font-bold uppercase tracking-wider text-blue-700 bg-blue-50 border border-blue-200 px-2.5 py-0.5 rounded-full">
+                    Módulo Operacional
+                </span>
+                <span class="text-slate-300">•</span>
+                <span class="text-xs text-slate-500 font-medium">
+                    {{ uf_label }}{% if municipio_selecionado %} • {{ municipio_label }}{% endif %}
+                </span>
+            </div>
+            <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+                Perfil Temporal & Condições Climáticas
+            </h1>
+            <p class="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+                Sazonalidade das ocorrências ao longo dos meses, dias da semana, período do dia e influência da meteorologia.
+            </p>
+        </div>
+
+        <div class="flex items-center gap-2">
+            <span class="px-3 py-1.5 rounded-xl bg-white dark:bg-[#1E293B] border border-[#E5E7EB] dark:border-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-300 shadow-xs">
+                Jan–Set 2026
+            </span>
+        </div>
+    </div>
+
+    <!-- ================================================================= -->
+    <!-- CARD DE INSIGHTS INTELIGENTES (DIAGNÓSTICO AUTOMÁTICO PANDAS)     -->
+    <!-- ================================================================= -->
+    {% if insights_inteligentes %}
+    <section class="bento-card bento-item p-5 border-l-4 border-l-blue-600 dark:border-l-blue-500 relative overflow-hidden">
+        <!-- Cabeçalho do Card -->
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-3.5 mb-4 border-b border-[#F1F5F9] dark:border-slate-800/80 gap-2">
+            <div class="flex items-center gap-2.5">
+                <div class="w-8 h-8 rounded-xl bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                    </svg>
+                </div>
+                <div>
+                    <h2 class="text-sm font-black tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
+                        <span>Diagnóstico Operacional Inteligente</span>
+                    </h2>
+                    <p class="text-[11px] text-slate-500 dark:text-slate-400">Padrões temporais e meteorológicos detectados dinamicamente via análise estatística</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                    <span class="w-1.5 h-1.5 rounded-full bg-blue-600 dark:bg-blue-400 animate-pulse"></span>
+                    Diagnóstico Automático • Pandas
+                </span>
+            </div>
+        </div>
+
+        {% if insights_inteligentes.vazio %}
+        <div class="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/60 dark:border-slate-800 text-xs text-slate-600 dark:text-slate-400 flex items-center gap-3">
+            <svg class="w-5 h-5 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            <span>{{ insights_inteligentes.mensagem }}</span>
+        </div>
+        {% else %}
+        <!-- Grid de 3 Colunas de Insights -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {% for item in insights_inteligentes.itens %}
+            <div class="p-4 rounded-xl bg-slate-50/70 dark:bg-[#1E293B]/50 border border-slate-200/60 dark:border-slate-800/80 hover:border-blue-300 dark:hover:border-blue-700 transition-colors flex flex-col justify-between">
+                <div>
+                    <div class="flex items-center justify-between gap-2 mb-2">
+                        <span class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">{{ item.titulo }}</span>
+                        <span class="px-2 py-0.5 rounded-md text-[10px] font-bold {{ item.badge_cor }}">
+                            {{ item.badge }}
+                        </span>
+                    </div>
+                    <div class="text-xs font-semibold text-slate-800 dark:text-slate-200 leading-relaxed mb-2">
+                        {{ item.destaque }}
+                    </div>
+                    <p class="text-xs text-slate-600 dark:text-slate-400 leading-normal">
+                        {{ item.descricao|safe }}
+                    </p>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </section>
+    {% endif %}
+
+    <!-- Seção 1: Evolução Mensal Area Spline (ECharts) -->
+    <section class="bento-card bento-item p-6">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-[#F1F5F9] dark:border-slate-800 gap-3">
+            <div>
+                <h2 class="text-sm font-bold text-slate-900 dark:text-white">Trajetória Mensal de Sinistros e Fatalidades</h2>
+                <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Acompanhamento contínuo da curva de ocorrências (azul) e vidas perdidas (vermelho)</p>
+            </div>
+            <div class="flex items-center gap-3 text-xs">
+                <span class="inline-flex items-center gap-1.5 font-semibold text-slate-700 dark:text-slate-300">
+                    <span class="w-2.5 h-2.5 rounded-full bg-blue-600"></span> Sinistros
+                </span>
+                <span class="inline-flex items-center gap-1.5 font-semibold text-slate-700 dark:text-slate-300">
+                    <span class="w-2.5 h-0.5 bg-rose-500"></span> Óbitos
+                </span>
+            </div>
+        </div>
+
+        <div class="w-full mt-2" id="chart-mensal" style="width: 100%; height: 340px; min-height: 340px; display: block;"></div>
+    </section>
+
+    <!-- Seção 2: Grid de 3 Cards Bento (Ciclo Semanal, Fase do Dia, Clima) -->
+    <section class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+
+        <!-- Card 1: Ciclo Semanal -->
+        <div class="bento-card bento-item p-6 flex flex-col justify-between">
+            <div>
+                <div class="flex items-center justify-between pb-3 border-b border-[#F1F5F9] dark:border-slate-800">
+                    <div>
+                        <h2 class="text-sm font-bold text-slate-900 dark:text-white">Ciclo Semanal</h2>
+                        <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Dias úteis vs. Fins de semana</p>
+                    </div>
+                    <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                        7 Dias
+                    </span>
+                </div>
+                <div class="w-full mt-2" id="chart-semana" style="width: 100%; height: 340px; min-height: 340px; display: block;"></div>
+            </div>
+            <div class="pt-3 border-t border-[#F1F5F9] dark:border-slate-800 text-[11px] text-slate-400 dark:text-slate-500">
+                Picos de sinistralidade concentrados em sextas e finais de semana
+            </div>
+        </div>
+
+        <!-- Card 2: Fase do Dia (Paradoxo Noturno) -->
+        <div class="bento-card bento-item p-6 flex flex-col justify-between">
+            <div>
+                <div class="flex items-center justify-between pb-3 border-b border-[#F1F5F9] dark:border-slate-800">
+                    <div>
+                        <h2 class="text-sm font-bold text-slate-900 dark:text-white">Severidade por Fase do Dia</h2>
+                        <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">O paradoxo da letalidade noturna</p>
+                    </div>
+                    <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
+                        4 Fases
+                    </span>
+                </div>
+                <div class="w-full mt-2" id="chart-fase" style="width: 100%; height: 340px; min-height: 340px; display: block;"></div>
+            </div>
+            <div class="pt-3 border-t border-[#F1F5F9] dark:border-slate-800 text-[11px] text-slate-400 dark:text-slate-500">
+                A noite apresenta taxa de letalidade superior devido à velocidade e visibilidade
+            </div>
+        </div>
+
+        <!-- Card 3: Condições Meteorológicas (Donut ECharts) -->
+        <div class="bento-card bento-item p-6 flex flex-col justify-between">
+            <div>
+                <div class="flex items-center justify-between pb-3 border-b border-[#F1F5F9] dark:border-slate-800">
+                    <div>
+                        <h2 class="text-sm font-bold text-slate-900 dark:text-white">Condições Climáticas</h2>
+                        <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Incidência do tempo na rodovia</p>
+                    </div>
+                    <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                        Top Climas
+                    </span>
+                </div>
+                <div class="w-full mt-2" id="chart-clima" style="width: 100%; height: 340px; min-height: 340px; display: block;"></div>
+            </div>
+            <div class="pt-3 border-t border-[#F1F5F9] dark:border-slate-800 text-[11px] text-slate-400 dark:text-slate-500">
+                A maioria das ocorrências ocorre em pista seca com céu claro
+            </div>
+        </div>
+
+    </section>
+
+</div>
+
+{{ chart_mensal_data|json_script:"data-chart-mensal" }}
+{{ chart_semana_data|json_script:"data-chart-semana" }}
+{{ chart_fase_data|json_script:"data-chart-fase" }}
+{{ chart_clima_data|json_script:"data-chart-clima" }}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function() {
+    function getThemeSafe() {
+        if (typeof window.getChartTheme === 'function') {
+            return window.getChartTheme();
+        }
+        const isDark = document.documentElement.classList.contains('dark');
+        return {
+            isDark: isDark,
+            textColor: isDark ? '#94A3B8' : '#64748B',
+            splitLineColor: isDark ? 'rgba(148, 163, 184, 0.12)' : '#F1F5F9',
+            axisLineColor: isDark ? '#334155' : '#E2E8F0',
+            inactiveBarColor: isDark ? '#1E293B' : '#94A3B8',
+            gaugeBgColor: isDark ? '#1E293B' : '#E2E8F0',
+            tooltipBg: isDark ? '#1E293B' : '#FFFFFF',
+            tooltipBorder: isDark ? '#334155' : '#E2E8F0',
+            tooltipText: isDark ? '#F1F5F9' : '#0F172A',
+        };
+    }
+
+    // =========================================================================
+    // RENDERIZADOR NATIVO SVG FALLBACK: TRAJETÓRIA MENSAL
+    // =========================================================================
+    function renderFallbackTrajetoriaSVG(container, data) {
+        if (!container || !data || !data.meses || data.meses.length === 0) return;
+        container.innerHTML = '';
+        container.style.position = 'relative';
+
+        const W = 800;
+        const H = 340;
+        const padTop = 30;
+        const padBottom = 40;
+        const padLeft = 65;
+        const padRight = 30;
+        const plotW = W - padLeft - padRight;
+        const plotH = H - padTop - padBottom;
+        const maxVal = Math.max(...data.sinistros, 1) * 1.15;
+        const n = data.meses.length;
+
+        const getX = (idx) => padLeft + (idx / (n - 1)) * plotW;
+        const getY = (val) => padTop + plotH - (val / maxVal) * plotH;
+
+        const pointsSinistros = data.sinistros.map((val, idx) => ({ x: getX(idx), y: getY(val), val, mes: data.meses[idx] }));
+        const pointsObitos = (data.obitos || []).map((val, idx) => ({ x: getX(idx), y: getY(val), val, mes: data.meses[idx] }));
+
+        function bezierPath(pts) {
+            if (!pts.length) return '';
+            if (pts.length === 1) return `M ${pts[0].x},${pts[0].y}`;
+            let d = `M ${pts[0].x.toFixed(1)},${pts[0].y.toFixed(1)}`;
+            for (let i = 0; i < pts.length - 1; i++) {
+                const p0 = pts[i === 0 ? 0 : i - 1];
+                const p1 = pts[i];
+                const p2 = pts[i + 1];
+                const p3 = pts[i + 2 < pts.length ? i + 2 : i + 1];
+                const cp1x = p1.x + (p2.x - p0.x) / 6;
+                const cp1y = p1.y + (p2.y - p0.y) / 6;
+                const cp2x = p2.x - (p3.x - p1.x) / 6;
+                const cp2y = p2.y - (p3.y - p1.y) / 6;
+                d += ` C ${cp1x.toFixed(1)},${cp1y.toFixed(1)} ${cp2x.toFixed(1)},${cp2y.toFixed(1)} ${p2.x.toFixed(1)},${p2.y.toFixed(1)}`;
+            }
+            return d;
+        }
+
+        const pathSinistros = bezierPath(pointsSinistros);
+        const bottomY = padTop + plotH;
+        const areaSinistros = `${pathSinistros} L ${pointsSinistros[n - 1].x.toFixed(1)},${bottomY} L ${pointsSinistros[0].x.toFixed(1)},${bottomY} Z`;
+        const pathObitos = bezierPath(pointsObitos);
+
+        let gridLinesSVG = '';
+        const numTicks = 5;
+        for (let i = 0; i <= numTicks; i++) {
+            const valTick = Math.round((maxVal / numTicks) * i);
+            const yTick = padTop + plotH - (valTick / maxVal) * plotH;
+            gridLinesSVG += `
+                <line x1="${padLeft}" y1="${yTick.toFixed(1)}" x2="${W - padRight}" y2="${yTick.toFixed(1)}" stroke="#F1F5F9" stroke-dasharray="4,4" stroke-width="1" />
+                <text x="${padLeft - 10}" y="${(yTick + 4).toFixed(1)}" text-anchor="end" font-size="10" fill="#94A3B8" font-family="Inter, sans-serif">${valTick.toLocaleString('pt-BR')}</text>
+            `;
+        }
+
+        let xLabelsSVG = '';
+        data.meses.forEach((mes, idx) => {
+            const x = getX(idx);
+            xLabelsSVG += `
+                <text x="${x.toFixed(1)}" y="${H - 12}" text-anchor="middle" font-size="11" font-weight="500" fill="#64748B" font-family="Inter, sans-serif">${mes}</text>
+            `;
+        });
+
+        let dotsSinistrosSVG = '';
+        pointsSinistros.forEach(p => {
+            dotsSinistrosSVG += `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="4.5" fill="#2563EB" stroke="#FFFFFF" stroke-width="2" />`;
+        });
+
+        let dotsObitosSVG = '';
+        pointsObitos.forEach(p => {
+            dotsObitosSVG += `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="3.5" fill="#EF4444" stroke="#FFFFFF" stroke-width="1.5" />`;
+        });
+
+        let triggerZonesSVG = '';
+        const colW = plotW / (n - 1);
+        data.meses.forEach((mes, idx) => {
+            const xCenter = getX(idx);
+            const xLeft = idx === 0 ? padLeft : xCenter - colW / 2;
+            const width = idx === 0 || idx === n - 1 ? colW / 2 : colW;
+            triggerZonesSVG += `
+                <rect x="${xLeft.toFixed(1)}" y="${padTop}" width="${width.toFixed(1)}" height="${plotH}" fill="transparent" class="cursor-pointer" data-idx="${idx}" />
+            `;
+        });
+
+        container.innerHTML = `
+            <svg viewBox="0 0 ${W} ${H}" width="100%" height="100%" style="overflow: visible; display: block;" preserveAspectRatio="none">
+                <defs>
+                    <linearGradient id="fallbackAreaTraj" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stop-color="#2563EB" stop-opacity="0.25" />
+                        <stop offset="100%" stop-color="#2563EB" stop-opacity="0.00" />
+                    </linearGradient>
+                </defs>
+                ${gridLinesSVG}
+                <line x1="${padLeft}" y1="${bottomY}" x2="${W - padRight}" y2="${bottomY}" stroke="#E2E8F0" stroke-width="1" />
+                ${xLabelsSVG}
+                <path d="${areaSinistros}" fill="url(#fallbackAreaTraj)" />
+                <path d="${pathSinistros}" fill="none" stroke="#2563EB" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+                <path d="${pathObitos}" fill="none" stroke="#EF4444" stroke-width="2" stroke-dasharray="4,4" stroke-linecap="round" />
+                ${dotsSinistrosSVG}
+                ${dotsObitosSVG}
+                ${triggerZonesSVG}
+            </svg>
+            <div id="fallback-tooltip-traj" style="display:none; position:absolute; pointer-events:none; z-index:50; background:rgba(15,23,42,0.94); border:1px solid rgba(255,255,255,0.2); border-radius:8px; padding:8px 12px; color:#FFFFFF; font-size:12px; font-family:Inter,sans-serif; box-shadow:0 8px 24px rgba(0,0,0,0.18);"></div>
+        `;
+
+        const tt = container.querySelector('#fallback-tooltip-traj');
+        const rects = container.querySelectorAll('rect[data-idx]');
+        rects.forEach(rect => {
+            rect.addEventListener('mouseenter', () => {
+                const idx = parseInt(rect.getAttribute('data-idx'));
+                const mes = data.meses[idx];
+                const sin = data.sinistros[idx];
+                const ob = data.obitos ? data.obitos[idx] : 0;
+                tt.innerHTML = `
+                    <div style="font-weight:bold; margin-bottom:4px;">${mes} de 2026</div>
+                    <div style="display:flex; justify-content:space-between; gap:16px; margin:2px 0;">
+                        <span style="color:#60A5FA;">● Sinistros:</span>
+                        <b style="font-variant-numeric:tabular-nums;">${sin.toLocaleString('pt-BR')}</b>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; gap:16px; margin:2px 0;">
+                        <span style="color:#F87171;">● Óbitos:</span>
+                        <b style="font-variant-numeric:tabular-nums;">${ob.toLocaleString('pt-BR')}</b>
+                    </div>
+                `;
+                tt.style.display = 'block';
+            });
+            rect.addEventListener('mousemove', (e) => {
+                const bbox = container.getBoundingClientRect();
+                let x = e.clientX - bbox.left + 15;
+                let y = e.clientY - bbox.top - 20;
+                if (x + 180 > bbox.width) x = bbox.width - 190;
+                if (y < 0) y = 10;
+                tt.style.left = x + 'px';
+                tt.style.top = y + 'px';
+            });
+            rect.addEventListener('mouseleave', () => {
+                tt.style.display = 'none';
+            });
+        });
+    }
+
+    // =========================================================================
+    // RENDERIZADOR NATIVO SVG FALLBACK: CICLO SEMANAL
+    // =========================================================================
+    function renderFallbackSemanaSVG(container, data) {
+        if (!container || !data || !data.dias || data.dias.length === 0) return;
+        container.innerHTML = '';
+        container.style.position = 'relative';
+
+        const W = 450;
+        const H = 340;
+        const padTop = 30;
+        const padBottom = 40;
+        const padLeft = 55;
+        const padRight = 20;
+        const plotW = W - padLeft - padRight;
+        const plotH = H - padTop - padBottom;
+        const bottomY = padTop + plotH;
+
+        const allValues = [...data.sinistros, ...data.obitos];
+        const maxVal = Math.max(...allValues, 1) * 1.15;
+        const numGroups = data.dias.length;
+        const groupW = plotW / numGroups;
+        const barW = Math.min(18, groupW * 0.38);
+        const gap = 4;
+
+        let gridLinesSVG = '';
+        const numTicks = 5;
+        for (let i = 0; i <= numTicks; i++) {
+            const valTick = Math.round((maxVal / numTicks) * i);
+            const yTick = bottomY - (valTick / maxVal) * plotH;
+            gridLinesSVG += `
+                <line x1="${padLeft}" y1="${yTick.toFixed(1)}" x2="${W - padRight}" y2="${yTick.toFixed(1)}" stroke="#F1F5F9" stroke-dasharray="4,4" stroke-width="1" />
+                <text x="${padLeft - 8}" y="${(yTick + 4).toFixed(1)}" text-anchor="end" font-size="10" fill="#94A3B8" font-family="Inter, sans-serif">${valTick.toLocaleString('pt-BR')}</text>
+            `;
+        }
+
+        let barsSVG = '';
+        let labelsSVG = '';
+        data.dias.forEach((dia, gIdx) => {
+            const groupCenterX = padLeft + gIdx * groupW + groupW / 2;
+            const totalBarsW = 2 * barW + gap;
+            const groupStartX = groupCenterX - totalBarsW / 2;
+
+            const sinVal = data.sinistros[gIdx];
+            const sinH = Math.max(3, (sinVal / maxVal) * plotH);
+            const sinX = groupStartX;
+            const sinY = bottomY - sinH;
+
+            const obVal = data.obitos[gIdx];
+            const obH = Math.max(3, (obVal / maxVal) * plotH);
+            const obX = groupStartX + barW + gap;
+            const obY = bottomY - obH;
+
+            barsSVG += `
+                <rect x="${sinX.toFixed(1)}" y="${sinY.toFixed(1)}" width="${barW.toFixed(1)}" height="${sinH.toFixed(1)}" rx="4" ry="4" fill="#2563EB" class="cursor-pointer" data-dia="${dia}" data-metric="Sinistros" data-val="${sinVal}" />
+                <rect x="${obX.toFixed(1)}" y="${obY.toFixed(1)}" width="${barW.toFixed(1)}" height="${obH.toFixed(1)}" rx="4" ry="4" fill="#EF4444" class="cursor-pointer" data-dia="${dia}" data-metric="Óbitos" data-val="${obVal}" />
+            `;
+
+            const shortLabel = dia.slice(0, 3);
+            labelsSVG += `
+                <text x="${groupCenterX.toFixed(1)}" y="${H - 12}" text-anchor="middle" font-size="11" font-weight="600" fill="#64748B" font-family="Inter, sans-serif">${shortLabel}</text>
+            `;
+        });
+
+        container.innerHTML = `
+            <svg viewBox="0 0 ${W} ${H}" width="100%" height="100%" style="overflow: visible; display: block;" preserveAspectRatio="none">
+                ${gridLinesSVG}
+                <line x1="${padLeft}" y1="${bottomY}" x2="${W - padRight}" y2="${bottomY}" stroke="#E2E8F0" stroke-width="1" />
+                ${barsSVG}
+                ${labelsSVG}
+            </svg>
+            <div id="fallback-tooltip-semana" style="display:none; position:absolute; pointer-events:none; z-index:50; background:rgba(15,23,42,0.94); border:1px solid rgba(255,255,255,0.2); border-radius:8px; padding:8px 12px; color:#FFFFFF; font-size:12px; font-family:Inter,sans-serif; box-shadow:0 8px 24px rgba(0,0,0,0.18);"></div>
+        `;
+
+        const tt = container.querySelector('#fallback-tooltip-semana');
+        const rects = container.querySelectorAll('rect[data-dia]');
+        rects.forEach(r => {
+            r.addEventListener('mouseenter', () => {
+                const dia = r.getAttribute('data-dia');
+                const metric = r.getAttribute('data-metric');
+                const val = parseInt(r.getAttribute('data-val'));
+                tt.innerHTML = `
+                    <div style="font-weight:bold; margin-bottom:4px;">${dia}</div>
+                    <div style="display:flex; justify-content:space-between; gap:16px;">
+                        <span>${metric}:</span>
+                        <b style="font-variant-numeric:tabular-nums;">${val.toLocaleString('pt-BR')}</b>
+                    </div>
+                `;
+                tt.style.display = 'block';
+            });
+            r.addEventListener('mousemove', (e) => {
+                const bbox = container.getBoundingClientRect();
+                let x = e.clientX - bbox.left + 15;
+                let y = e.clientY - bbox.top - 20;
+                if (x + 150 > bbox.width) x = bbox.width - 160;
+                if (y < 0) y = 10;
+                tt.style.left = x + 'px';
+                tt.style.top = y + 'px';
+            });
+            r.addEventListener('mouseleave', () => {
+                tt.style.display = 'none';
+            });
+        });
+    }
+
+    // =========================================================================
+    // RENDERIZADOR NATIVO SVG FALLBACK: FASE DO DIA
+    // =========================================================================
+    function renderFallbackFaseSVG(container, data) {
+        if (!container || !data || !data.fases || data.fases.length === 0) return;
+        container.innerHTML = '';
+        container.style.position = 'relative';
+
+        const W = 450;
+        const H = 340;
+        const padTop = 30;
+        const padBottom = 40;
+        const padLeft = 55;
+        const padRight = 20;
+        const plotW = W - padLeft - padRight;
+        const plotH = H - padTop - padBottom;
+        const bottomY = padTop + plotH;
+
+        const allValues = [...data.sinistros, ...data.obitos];
+        const maxVal = Math.max(...allValues, 1) * 1.15;
+        const numGroups = data.fases.length;
+        const groupW = plotW / numGroups;
+        const barW = Math.min(26, groupW * 0.35);
+        const gap = 6;
+
+        let gridLinesSVG = '';
+        const numTicks = 5;
+        for (let i = 0; i <= numTicks; i++) {
+            const valTick = Math.round((maxVal / numTicks) * i);
+            const yTick = bottomY - (valTick / maxVal) * plotH;
+            gridLinesSVG += `
+                <line x1="${padLeft}" y1="${yTick.toFixed(1)}" x2="${W - padRight}" y2="${yTick.toFixed(1)}" stroke="#F1F5F9" stroke-dasharray="4,4" stroke-width="1" />
+                <text x="${padLeft - 8}" y="${(yTick + 4).toFixed(1)}" text-anchor="end" font-size="10" fill="#94A3B8" font-family="Inter, sans-serif">${valTick.toLocaleString('pt-BR')}</text>
+            `;
+        }
+
+        let barsSVG = '';
+        let labelsSVG = '';
+        data.fases.forEach((fase, gIdx) => {
+            const groupCenterX = padLeft + gIdx * groupW + groupW / 2;
+            const totalBarsW = 2 * barW + gap;
+            const groupStartX = groupCenterX - totalBarsW / 2;
+
+            const sinVal = data.sinistros[gIdx];
+            const sinH = Math.max(3, (sinVal / maxVal) * plotH);
+            const sinX = groupStartX;
+            const sinY = bottomY - sinH;
+
+            const obVal = data.obitos[gIdx];
+            const obH = Math.max(3, (obVal / maxVal) * plotH);
+            const obX = groupStartX + barW + gap;
+            const obY = bottomY - obH;
+
+            barsSVG += `
+                <rect x="${sinX.toFixed(1)}" y="${sinY.toFixed(1)}" width="${barW.toFixed(1)}" height="${sinH.toFixed(1)}" rx="5" ry="5" fill="#0EA5E9" class="cursor-pointer" data-fase="${fase}" data-metric="Sinistros" data-val="${sinVal}" />
+                <rect x="${obX.toFixed(1)}" y="${obY.toFixed(1)}" width="${barW.toFixed(1)}" height="${obH.toFixed(1)}" rx="5" ry="5" fill="#EF4444" class="cursor-pointer" data-fase="${fase}" data-metric="Óbitos" data-val="${obVal}" />
+            `;
+
+            labelsSVG += `
+                <text x="${groupCenterX.toFixed(1)}" y="${H - 12}" text-anchor="middle" font-size="10" font-weight="600" fill="#64748B" font-family="Inter, sans-serif">${fase}</text>
+            `;
+        });
+
+        container.innerHTML = `
+            <svg viewBox="0 0 ${W} ${H}" width="100%" height="100%" style="overflow: visible; display: block;" preserveAspectRatio="none">
+                ${gridLinesSVG}
+                <line x1="${padLeft}" y1="${bottomY}" x2="${W - padRight}" y2="${bottomY}" stroke="#E2E8F0" stroke-width="1" />
+                ${barsSVG}
+                ${labelsSVG}
+            </svg>
+            <div id="fallback-tooltip-fase" style="display:none; position:absolute; pointer-events:none; z-index:50; background:rgba(15,23,42,0.94); border:1px solid rgba(255,255,255,0.2); border-radius:8px; padding:8px 12px; color:#FFFFFF; font-size:12px; font-family:Inter,sans-serif; box-shadow:0 8px 24px rgba(0,0,0,0.18);"></div>
+        `;
+
+        const tt = container.querySelector('#fallback-tooltip-fase');
+        const rects = container.querySelectorAll('rect[data-fase]');
+        rects.forEach(r => {
+            r.addEventListener('mouseenter', () => {
+                const fase = r.getAttribute('data-fase');
+                const metric = r.getAttribute('data-metric');
+                const val = parseInt(r.getAttribute('data-val'));
+                tt.innerHTML = `
+                    <div style="font-weight:bold; margin-bottom:4px;">${fase}</div>
+                    <div style="display:flex; justify-content:space-between; gap:16px;">
+                        <span>${metric}:</span>
+                        <b style="font-variant-numeric:tabular-nums;">${val.toLocaleString('pt-BR')}</b>
+                    </div>
+                `;
+                tt.style.display = 'block';
+            });
+            r.addEventListener('mousemove', (e) => {
+                const bbox = container.getBoundingClientRect();
+                let x = e.clientX - bbox.left + 15;
+                let y = e.clientY - bbox.top - 20;
+                if (x + 160 > bbox.width) x = bbox.width - 170;
+                if (y < 0) y = 10;
+                tt.style.left = x + 'px';
+                tt.style.top = y + 'px';
+            });
+            r.addEventListener('mouseleave', () => {
+                tt.style.display = 'none';
+            });
+        });
+    }
+
+    // =========================================================================
+    // RENDERIZADOR NATIVO SVG FALLBACK: CLIMA (DONUT)
+    // =========================================================================
+    function renderFallbackClimaSVG(container, data) {
+        if (!container || !data || !Array.isArray(data) || data.length === 0) return;
+        container.innerHTML = '';
+        container.style.position = 'relative';
+
+        const W = 450;
+        const cx = 225;
+        const cy = 120;
+        const rOuter = 85;
+        const rInner = 52;
+
+        const total = data.reduce((sum, item) => sum + item.value, 0);
+        const cores = ['#2563EB', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899', '#06B6D4', '#94A3B8'];
+
+        let currentAngle = -Math.PI / 2;
+        let pathsSVG = '';
+
+        data.forEach((item, idx) => {
+            const sliceAngle = (item.value / total) * 2 * Math.PI;
+            const endAngle = currentAngle + sliceAngle;
+
+            const x1Outer = cx + rOuter * Math.cos(currentAngle);
+            const y1Outer = cy + rOuter * Math.sin(currentAngle);
+            const x2Outer = cx + rOuter * Math.cos(endAngle);
+            const y2Outer = cy + rOuter * Math.sin(endAngle);
+
+            const x1Inner = cx + rInner * Math.cos(endAngle);
+            const y1Inner = cy + rInner * Math.sin(endAngle);
+            const x2Inner = cx + rInner * Math.cos(currentAngle);
+            const y2Inner = cy + rInner * Math.sin(currentAngle);
+
+            const largeArc = sliceAngle > Math.PI ? 1 : 0;
+            const cor = cores[idx % cores.length];
+
+            const d = `M ${x1Outer.toFixed(2)} ${y1Outer.toFixed(2)} 
+                       A ${rOuter} ${rOuter} 0 ${largeArc} 1 ${x2Outer.toFixed(2)} ${y2Outer.toFixed(2)} 
+                       L ${x1Inner.toFixed(2)} ${y1Inner.toFixed(2)} 
+                       A ${rInner} ${rInner} 0 ${largeArc} 0 ${x2Inner.toFixed(2)} ${y2Inner.toFixed(2)} Z`;
+
+            pathsSVG += `
+                <path d="${d}" fill="${cor}" stroke="#FFFFFF" stroke-width="2" class="cursor-pointer transition-opacity hover:opacity-85" data-name="${item.name}" data-val="${item.value}" data-pct="${((item.value / total) * 100).toFixed(1)}" />
+            `;
+            currentAngle = endAngle;
+        });
+
+        let legendHTML = '<div style="display:flex; flex-wrap:wrap; justify-content:center; gap:6px 12px; margin-top:8px; font-size:11px; color:#64748B;">';
+        data.slice(0, 6).forEach((item, idx) => {
+            const cor = cores[idx % cores.length];
+            const pct = ((item.value / total) * 100).toFixed(1);
+            legendHTML += `
+                <div style="display:inline-flex; align-items:center; gap:5px;">
+                    <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:${cor};"></span>
+                    <span>${item.name} <b>(${pct}%)</b></span>
+                </div>
+            `;
+        });
+        legendHTML += '</div>';
+
+        container.innerHTML = `
+            <svg viewBox="0 0 ${W} 240" width="100%" height="240" style="overflow: visible; display: block;">
+                ${pathsSVG}
+                <text x="${cx}" y="${cy - 2}" text-anchor="middle" font-size="15" font-weight="800" fill="#0F172A" font-family="Inter, sans-serif">${total.toLocaleString('pt-BR')}</text>
+                <text x="${cx}" y="${cy + 16}" text-anchor="middle" font-size="10" font-weight="500" fill="#94A3B8" font-family="Inter, sans-serif">Ocorrências</text>
+            </svg>
+            ${legendHTML}
+            <div id="fallback-tooltip-clima" style="display:none; position:absolute; pointer-events:none; z-index:50; background:rgba(15,23,42,0.94); border:1px solid rgba(255,255,255,0.2); border-radius:8px; padding:8px 12px; color:#FFFFFF; font-size:12px; font-family:Inter,sans-serif; box-shadow:0 8px 24px rgba(0,0,0,0.18);"></div>
+        `;
+
+        const tt = container.querySelector('#fallback-tooltip-clima');
+        const slices = container.querySelectorAll('path[data-name]');
+        slices.forEach(s => {
+            s.addEventListener('mouseenter', () => {
+                const name = s.getAttribute('data-name');
+                const val = parseInt(s.getAttribute('data-val'));
+                const pct = s.getAttribute('data-pct');
+                tt.innerHTML = `
+                    <div style="font-weight:bold; margin-bottom:4px;">${name}</div>
+                    <div style="display:flex; justify-content:space-between; gap:16px;">
+                        <span>Sinistros:</span>
+                        <b style="font-variant-numeric:tabular-nums;">${val.toLocaleString('pt-BR')} (${pct}%)</b>
+                    </div>
+                `;
+                tt.style.display = 'block';
+            });
+            s.addEventListener('mousemove', (e) => {
+                const bbox = container.getBoundingClientRect();
+                let x = e.clientX - bbox.left + 15;
+                let y = e.clientY - bbox.top - 20;
+                if (x + 160 > bbox.width) x = bbox.width - 170;
+                if (y < 0) y = 10;
+                tt.style.left = x + 'px';
+                tt.style.top = y + 'px';
+            });
+            s.addEventListener('mouseleave', () => {
+                tt.style.display = 'none';
+            });
+        });
+    }
+
+    function initTemporalCharts() {
+        window.echartsInstances = window.echartsInstances || [];
+        const theme = getThemeSafe();
+
+        // =========================================================================
+        // 1. GRÁFICO EVOLUÇÃO MENSAL AREA SPLINE (ECHARTS)
+        // =========================================================================
+        try {
+            const elMensal = document.getElementById('chart-mensal');
+            const dataMensalEl = document.getElementById('data-chart-mensal');
+
+            if (elMensal && dataMensalEl) {
+                const mensalData = JSON.parse(dataMensalEl.textContent);
+                if (mensalData && mensalData.meses && mensalData.meses.length > 0) {
+                    let renderedMensal = false;
+
+                    if (typeof echarts !== 'undefined') {
+                        try {
+                            const existing = echarts.getInstanceByDom(elMensal);
+                            if (existing) {
+                                existing.dispose();
+                            }
+
+                            const chartMensal = echarts.init(elMensal, null, { renderer: 'svg' });
+                            window.echartsInstances.push(chartMensal);
+
+                            const optionMensal = {
+                                backgroundColor: 'transparent',
+                                tooltip: {
+                                    trigger: 'axis',
+                                    backgroundColor: theme.tooltipBg,
+                                    borderColor: theme.tooltipBorder,
+                                    borderWidth: 1,
+                                    padding: [10, 14],
+                                    textStyle: { color: theme.tooltipText, fontSize: 12, fontFamily: 'Inter, sans-serif' },
+                                    formatter: function(params) {
+                                        let res = `<div style="font-weight: bold; margin-bottom: 4px;">${params[0].name} de 2026</div>`;
+                                        params.forEach(p => {
+                                            res += `<div style="display:flex; justify-content:space-between; gap:16px; margin: 2px 0;">
+                                                <span>${p.marker} ${p.seriesName}:</span>
+                                                <span style="font-weight:bold; font-variant-numeric:tabular-nums;">${p.value.toLocaleString('pt-BR')}</span>
+                                            </div>`;
+                                        });
+                                        return res;
+                                    }
+                                },
+                                grid: {
+                                    top: 25,
+                                    right: 20,
+                                    bottom: 25,
+                                    left: 55
+                                },
+                                xAxis: {
+                                    type: 'category',
+                                    data: mensalData.meses,
+                                    boundaryGap: false,
+                                    axisLine: { lineStyle: { color: theme.axisLineColor } },
+                                    axisTick: { show: false },
+                                    axisLabel: { color: theme.textColor, fontSize: 11, fontWeight: 500 }
+                                },
+                                yaxis: {
+                                    type: 'value',
+                                    splitLine: { lineStyle: { color: theme.splitLineColor, type: 'dashed' } },
+                                    axisLabel: { color: theme.textColor, fontSize: 10 }
+                                },
+                                series: [
+                                    {
+                                        name: 'Sinistros',
+                                        type: 'line',
+                                        smooth: true,
+                                        showSymbol: true,
+                                        symbolSize: 6,
+                                        itemStyle: { color: '#2563EB' },
+                                        lineStyle: { width: 3, color: '#2563EB' },
+                                        areaStyle: {
+                                            color: {
+                                                type: 'linear',
+                                                x: 0,
+                                                y: 0,
+                                                x2: 0,
+                                                y2: 1,
+                                                colorStops: [
+                                                    { offset: 0, color: 'rgba(37, 99, 235, 0.25)' },
+                                                    { offset: 1, color: 'rgba(37, 99, 235, 0.00)' }
+                                                ]
+                                            }
+                                        },
+                                        emphasis: { focus: 'series' },
+                                        data: mensalData.sinistros
+                                    },
+                                    {
+                                        name: 'Óbitos',
+                                        type: 'line',
+                                        smooth: true,
+                                        showSymbol: true,
+                                        symbolSize: 6,
+                                        itemStyle: { color: '#EF4444' },
+                                        lineStyle: { width: 2, color: '#EF4444', type: 'dashed' },
+                                        emphasis: { focus: 'series' },
+                                        data: mensalData.obitos
+                                    }
+                                ]
+                            };
+
+                            chartMensal.setOption(optionMensal);
+                            renderedMensal = true;
+                            setTimeout(() => chartMensal.resize(), 100);
+                            window.addEventListener('resize', () => chartMensal.resize());
+                            if (window.ResizeObserver) {
+                                new ResizeObserver(() => chartMensal.resize()).observe(elMensal);
+                            }
+                        } catch (errMensal) {
+                            console.warn('Erro ao inicializar chartMensal:', errMensal);
+                        }
+                    }
+
+                    if (!renderedMensal) {
+                        renderFallbackTrajetoriaSVG(elMensal, mensalData);
+                    }
+                }
+            }
+        } catch (e) {
+            console.error('Erro no gráfico Trajetória Mensal:', e);
+        }
+
+        // =========================================================================
+        // 2. GRÁFICO CICLO SEMANAL
+        // =========================================================================
+        try {
+            const elSemana = document.getElementById('chart-semana');
+            const dataSemanaEl = document.getElementById('data-chart-semana');
+
+            if (elSemana && dataSemanaEl) {
+                const semanaData = JSON.parse(dataSemanaEl.textContent);
+                if (semanaData && semanaData.dias && semanaData.dias.length > 0) {
+                    let renderedSemana = false;
+
+                    if (typeof echarts !== 'undefined') {
+                        try {
+                            const existing = echarts.getInstanceByDom(elSemana);
+                            if (existing) {
+                                existing.dispose();
+                            }
+
+                            const chartSemana = echarts.init(elSemana, null, { renderer: 'svg' });
+                            window.echartsInstances.push(chartSemana);
+
+                            const optionSemana = {
+                                backgroundColor: 'transparent',
+                                tooltip: {
+                                    trigger: 'axis',
+                                    axisPointer: { type: 'shadow' },
+                                    backgroundColor: theme.tooltipBg,
+                                    borderColor: theme.tooltipBorder,
+                                    borderWidth: 1,
+                                    padding: [8, 12],
+                                    textStyle: { color: theme.tooltipText, fontSize: 11, fontFamily: 'Inter, sans-serif' }
+                                },
+                                grid: {
+                                    top: 25,
+                                    right: 15,
+                                    bottom: 25,
+                                    left: 45
+                                },
+                                xAxis: {
+                                    type: 'category',
+                                    data: semanaData.dias.map(d => d.slice(0, 3)),
+                                    axisLine: { lineStyle: { color: theme.axisLineColor } },
+                                    axisTick: { show: false },
+                                    axisLabel: { color: theme.textColor, fontSize: 11, fontWeight: 600 }
+                                },
+                                yaxis: {
+                                    type: 'value',
+                                    splitLine: { lineStyle: { color: theme.splitLineColor, type: 'dashed' } },
+                                    axisLabel: { color: theme.textColor, fontSize: 10 }
+                                },
+                                series: [
+                                    {
+                                        name: 'Sinistros',
+                                        type: 'bar',
+                                        barWidth: '40%',
+                                        itemStyle: {
+                                            color: '#2563EB',
+                                            borderRadius: [6, 6, 0, 0]
+                                        },
+                                        emphasis: { focus: 'series' },
+                                        data: semanaData.sinistros
+                                    },
+                                    {
+                                        name: 'Óbitos',
+                                        type: 'bar',
+                                        barWidth: '40%',
+                                        itemStyle: {
+                                            color: '#EF4444',
+                                            borderRadius: [6, 6, 0, 0]
+                                        },
+                                        emphasis: { focus: 'series' },
+                                        data: semanaData.obitos
+                                    }
+                                ]
+                            };
+
+                            chartSemana.setOption(optionSemana);
+                            renderedSemana = true;
+                            setTimeout(() => chartSemana.resize(), 100);
+                            window.addEventListener('resize', () => chartSemana.resize());
+                            if (window.ResizeObserver) {
+                                new ResizeObserver(() => chartSemana.resize()).observe(elSemana);
+                            }
+                        } catch (errSem) {
+                            console.warn('Erro ao inicializar chartSemana:', errSem);
+                        }
+                    }
+
+                    if (!renderedSemana) {
+                        renderFallbackSemanaSVG(elSemana, semanaData);
+                    }
+                }
+            }
+        } catch (e) {
+            console.error('Erro no gráfico Ciclo Semanal:', e);
+        }
+
+        // =========================================================================
+        // 3. GRÁFICO FASE DO DIA
+        // =========================================================================
+        try {
+            const elFase = document.getElementById('chart-fase');
+            const dataFaseEl = document.getElementById('data-chart-fase');
+
+            if (elFase && dataFaseEl) {
+                const faseData = JSON.parse(dataFaseEl.textContent);
+                if (faseData && faseData.fases && faseData.fases.length > 0) {
+                    let renderedFase = false;
+
+                    if (typeof echarts !== 'undefined') {
+                        try {
+                            const existing = echarts.getInstanceByDom(elFase);
+                            if (existing) {
+                                existing.dispose();
+                            }
+
+                            const chartFase = echarts.init(elFase, null, { renderer: 'svg' });
+                            window.echartsInstances.push(chartFase);
+
+                            const optionFase = {
+                                backgroundColor: 'transparent',
+                                tooltip: {
+                                    trigger: 'axis',
+                                    axisPointer: { type: 'shadow' },
+                                    backgroundColor: theme.tooltipBg,
+                                    borderColor: theme.tooltipBorder,
+                                    borderWidth: 1,
+                                    padding: [8, 12],
+                                    textStyle: { color: theme.tooltipText, fontSize: 11, fontFamily: 'Inter, sans-serif' }
+                                },
+                                grid: {
+                                    top: 25,
+                                    right: 15,
+                                    bottom: 25,
+                                    left: 45
+                                },
+                                xAxis: {
+                                    type: 'category',
+                                    data: faseData.fases,
+                                    axisLine: { lineStyle: { color: theme.axisLineColor } },
+                                    axisTick: { show: false },
+                                    axisLabel: { color: theme.textColor, fontSize: 10, fontWeight: 500 }
+                                },
+                                yaxis: {
+                                    type: 'value',
+                                    splitLine: { lineStyle: { color: theme.splitLineColor, type: 'dashed' } },
+                                    axisLabel: { color: theme.textColor, fontSize: 10 }
+                                },
+                                series: [
+                                    {
+                                        name: 'Sinistros',
+                                        type: 'bar',
+                                        barWidth: '40%',
+                                        itemStyle: {
+                                            color: '#0EA5E9',
+                                            borderRadius: [6, 6, 0, 0]
+                                        },
+                                        emphasis: { focus: 'series' },
+                                        data: faseData.sinistros
+                                    },
+                                    {
+                                        name: 'Óbitos',
+                                        type: 'bar',
+                                        barWidth: '40%',
+                                        itemStyle: {
+                                            color: '#EF4444',
+                                            borderRadius: [6, 6, 0, 0]
+                                        },
+                                        emphasis: { focus: 'series' },
+                                        data: faseData.obitos
+                                    }
+                                ]
+                            };
+
+                            chartFase.setOption(optionFase);
+                            renderedFase = true;
+                            setTimeout(() => chartFase.resize(), 100);
+                            window.addEventListener('resize', () => chartFase.resize());
+                            if (window.ResizeObserver) {
+                                new ResizeObserver(() => chartFase.resize()).observe(elFase);
+                            }
+                        } catch (errFase) {
+                            console.warn('Erro ao inicializar chartFase:', errFase);
+                        }
+                    }
+
+                    if (!renderedFase) {
+                        renderFallbackFaseSVG(elFase, faseData);
+                    }
+                }
+            }
+        } catch (e) {
+            console.error('Erro no gráfico Severidade por Fase do Dia:', e);
+        }
+
+        // =========================================================================
+        // 4. GRÁFICO CLIMA (DONUT ECHARTS)
+        // =========================================================================
+        try {
+            const elClima = document.getElementById('chart-clima');
+            const dataClimaEl = document.getElementById('data-chart-clima');
+
+            if (elClima && dataClimaEl) {
+                const climaData = JSON.parse(dataClimaEl.textContent);
+                if (Array.isArray(climaData) && climaData.length > 0) {
+                    let renderedClima = false;
+
+                    if (typeof echarts !== 'undefined') {
+                        try {
+                            const existing = echarts.getInstanceByDom(elClima);
+                            if (existing) {
+                                existing.dispose();
+                            }
+
+                            const chartClima = echarts.init(elClima, null, { renderer: 'svg' });
+                            window.echartsInstances.push(chartClima);
+
+                            const coresClima = ['#2563EB', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899', '#06B6D4', '#94A3B8'];
+
+                            const optionClima = {
+                                backgroundColor: 'transparent',
+                                tooltip: {
+                                    trigger: 'item',
+                                    backgroundColor: theme.tooltipBg,
+                                    borderColor: theme.tooltipBorder,
+                                    borderWidth: 1,
+                                    padding: [8, 12],
+                                    textStyle: { color: theme.tooltipText, fontSize: 11, fontFamily: 'Inter, sans-serif' },
+                                    formatter: '{b}: <b>{c}</b> ({d}%)'
+                                },
+                                legend: {
+                                    bottom: 0,
+                                    left: 'center',
+                                    textStyle: { color: theme.textColor, fontSize: 10 },
+                                    itemWidth: 10,
+                                    itemHeight: 10
+                                },
+                                series: [
+                                    {
+                                        name: 'Condição Climática',
+                                        type: 'pie',
+                                        radius: ['45%', '70%'],
+                                        center: ['50%', '42%'],
+                                        avoidLabelOverlap: false,
+                                        itemStyle: {
+                                            borderRadius: 6,
+                                            borderColor: theme.isDark ? '#1E293B' : '#FFFFFF',
+                                            borderWidth: 2
+                                        },
+                                        color: coresClima,
+                                        label: { show: false },
+                                        emphasis: {
+                                            label: {
+                                                show: true,
+                                                fontSize: 12,
+                                                fontWeight: 'bold',
+                                                color: theme.isDark ? '#F1F5F9' : '#0F172A'
+                                            }
+                                        },
+                                        data: climaData
+                                    }
+                                ]
+                            };
+
+                            chartClima.setOption(optionClima);
+                            renderedClima = true;
+                            setTimeout(() => chartClima.resize(), 100);
+                            window.addEventListener('resize', () => chartClima.resize());
+                            if (window.ResizeObserver) {
+                                new ResizeObserver(() => chartClima.resize()).observe(elClima);
+                            }
+                        } catch (errClima) {
+                            console.warn('Erro ao inicializar chartClima:', errClima);
+                        }
+                    }
+
+                    if (!renderedClima) {
+                        renderFallbackClimaSVG(elClima, climaData);
+                    }
+                }
+            }
+        } catch (e) {
+            console.error('Erro no gráfico Condições Climáticas:', e);
+        }
+    }
+
+    if (document.readyState === 'complete') {
+        initTemporalCharts();
+    } else {
+        window.addEventListener('load', initTemporalCharts);
+    }
+
+    // Reagir a mudanças de tema (Dark / Light)
+    window.addEventListener('themeChanged', function() {
+        initTemporalCharts();
+    });
+})();
+</script>
+{% endblock %}

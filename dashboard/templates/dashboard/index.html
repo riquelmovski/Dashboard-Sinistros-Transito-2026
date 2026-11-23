@@ -1,0 +1,969 @@
+{% extends 'dashboard/base.html' %}
+
+{% block title %}Dashboard Principal — PRF Analytics 2026{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+    <!-- Cabeçalho da Página -->
+    <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-2">
+        <div>
+            <div class="flex items-center gap-2 mb-1">
+                <span class="text-[11px] font-bold uppercase tracking-wider text-blue-700 bg-blue-50 border border-blue-200 px-2.5 py-0.5 rounded-full">
+                    Visão Geral Executiva
+                </span>
+                <span class="text-slate-300">•</span>
+                <span class="text-xs text-slate-500 font-medium">
+                    {{ uf_label }}{% if br_selecionada %} • {{ br_label }}{% endif %}
+                </span>
+            </div>
+            <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+                Dashboard de Sinistros Rodoviários
+            </h1>
+            <p class="text-xs sm:text-sm text-slate-500 mt-0.5">
+                Monitoramento operacional dos sinistros, perfil de vítimas e infraestrutura viária federal em 2026.
+            </p>
+        </div>
+
+        {% if tem_filtro_ativo %}
+        <div class="flex items-center gap-2">
+            <span class="text-xs text-slate-500 font-medium">Filtro ativo:</span>
+            <span class="inline-flex items-center gap-1 px-3 py-1 bg-white dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 shadow-xs rounded-full text-xs font-semibold text-slate-800 dark:text-slate-200">
+                {{ uf_label }} {% if municipio_selecionado %}• {{ municipio_label }}{% endif %} {% if classificacao_selecionada %}• {{ classificacao_selecionada }}{% endif %} {% if br_selecionada %}• {{ br_label }}{% endif %}
+            </span>
+            <a href="{{ url_limpar_tudo }}" class="text-xs font-bold text-rose-600 hover:text-rose-700 underline transition">
+                Limpar
+            </a>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- ================================================================= -->
+    <!-- 1. OS 4 KPIS PRINCIPAIS (BENTO CARDS SUPERIORES)                  -->
+    <!-- ================================================================= -->
+    <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+
+        <!-- KPI 1: Total de Sinistros -->
+        <div class="bento-card bento-item p-5 flex flex-col justify-between">
+            <div class="flex items-center justify-between mb-2">
+                <span class="text-[11px] font-bold uppercase tracking-wider text-[#64748B]">Total de Sinistros</span>
+                <div class="w-8 h-8 rounded-xl bg-blue-50 border border-blue-100 text-blue-600 flex items-center justify-center">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0"/></svg>
+                </div>
+            </div>
+            <div>
+                <div class="text-[28px] font-black tabular-nums tracking-tight text-[#0F172A] kpi-number" 
+                     data-value="{{ total_sinistros_raw }}">
+                    {{ kpi_sinistros }}
+                </div>
+            </div>
+            <div class="mt-3 pt-2.5 border-t border-[#F1F5F9] flex items-center justify-between text-xs">
+                <span class="text-slate-400">Auditoria</span>
+                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#DCFCE7] text-[#15803D]">
+                    100% Auditado
+                </span>
+            </div>
+        </div>
+
+        <!-- KPI 2: Total de Óbitos -->
+        <div class="bento-card bento-item p-5 flex flex-col justify-between">
+            <div class="flex items-center justify-between mb-2">
+                <span class="text-[11px] font-bold uppercase tracking-wider text-[#64748B]">Total de Óbitos</span>
+                <div class="w-8 h-8 rounded-xl bg-rose-50 border border-rose-100 text-rose-600 flex items-center justify-center">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                </div>
+            </div>
+            <div>
+                <div class="text-[28px] font-black tabular-nums tracking-tight text-rose-600 kpi-number" 
+                     data-value="{{ total_obitos_raw }}">
+                    {{ kpi_obitos }}
+                </div>
+            </div>
+            <div class="mt-3 pt-2.5 border-t border-[#F1F5F9] flex items-center justify-between text-xs">
+                <span class="text-slate-400">Vítimas fatais</span>
+                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#FEE2E2] text-[#B91C1C]">
+                    Prioridade Zero
+                </span>
+            </div>
+        </div>
+
+        <!-- KPI 3: Feridos Graves -->
+        <div class="bento-card bento-item p-5 flex flex-col justify-between">
+            <div class="flex items-center justify-between mb-2">
+                <span class="text-[11px] font-bold uppercase tracking-wider text-[#64748B]">Feridos Graves</span>
+                <div class="w-8 h-8 rounded-xl bg-amber-50 border border-amber-100 text-amber-600 flex items-center justify-center">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"/></svg>
+                </div>
+            </div>
+            <div>
+                <div class="text-[28px] font-black tabular-nums tracking-tight text-amber-600 kpi-number" 
+                     data-value="{{ total_feridos_graves_raw }}">
+                    {{ kpi_feridos_graves }}
+                </div>
+            </div>
+            <div class="mt-3 pt-2.5 border-t border-[#F1F5F9] flex items-center justify-between text-xs">
+                <span class="text-slate-400">Internações</span>
+                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#FEF3C7] text-[#B45309]">
+                    Alta Gravidade
+                </span>
+            </div>
+        </div>
+
+        <!-- KPI 4: Índice de Letalidade -->
+        <div class="bento-card bento-item p-5 flex flex-col justify-between">
+            <div class="flex items-center justify-between mb-2">
+                <span class="text-[11px] font-bold uppercase tracking-wider text-[#64748B]">Índice de Letalidade</span>
+                <div class="w-8 h-8 rounded-xl bg-purple-50 border border-purple-100 text-purple-600 flex items-center justify-center">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
+                </div>
+            </div>
+            <div>
+                <div class="text-[28px] font-black tabular-nums tracking-tight text-purple-700 kpi-number" 
+                     data-value="{{ taxa_letalidade_num }}" data-is-percent="true">
+                    {{ kpi_letalidade }}
+                </div>
+            </div>
+            <div class="mt-3 pt-2.5 border-t border-[#F1F5F9] dark:border-slate-800 flex items-center justify-between text-xs">
+                <span class="text-slate-400 dark:text-slate-500">Óbitos / 100 sinistros</span>
+                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#F3E8FF] dark:bg-purple-950/60 text-[#7E22CE] dark:text-purple-300">
+                    Severidade
+                </span>
+            </div>
+        </div>
+
+    </section>
+
+    <!-- ================================================================= -->
+    <!-- 1.5. CARD DE INSIGHTS INTELIGENTES (DIAGNÓSTICO AUTOMÁTICO PANDAS) -->
+    <!-- ================================================================= -->
+    {% if insights_inteligentes %}
+    <section class="bento-card bento-item p-5 border-l-4 border-l-blue-600 dark:border-l-blue-500 relative overflow-hidden">
+        <!-- Cabeçalho do Card -->
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-3.5 mb-4 border-b border-[#F1F5F9] dark:border-slate-800/80 gap-2">
+            <div class="flex items-center gap-2.5">
+                <div class="w-8 h-8 rounded-xl bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                    </svg>
+                </div>
+                <div>
+                    <h2 class="text-sm font-black tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
+                        <span>Diagnóstico Operacional Inteligente</span>
+                    </h2>
+                    <p class="text-[11px] text-slate-500 dark:text-slate-400">Padrões críticos detectados dinamicamente via análise estatística do recorte ativo</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                    <span class="w-1.5 h-1.5 rounded-full bg-blue-600 dark:bg-blue-400 animate-pulse"></span>
+                    Diagnóstico Automático • Pandas
+                </span>
+            </div>
+        </div>
+
+        {% if insights_inteligentes.vazio %}
+        <div class="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/60 dark:border-slate-800 text-xs text-slate-600 dark:text-slate-400 flex items-center gap-3">
+            <svg class="w-5 h-5 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            <span>{{ insights_inteligentes.mensagem }}</span>
+        </div>
+        {% else %}
+        <!-- Grid de 3 Colunas de Insights -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {% for item in insights_inteligentes.itens %}
+            <div class="p-4 rounded-xl bg-slate-50/70 dark:bg-[#1E293B]/50 border border-slate-200/60 dark:border-slate-800/80 hover:border-blue-300 dark:hover:border-blue-700 transition-colors flex flex-col justify-between">
+                <div>
+                    <div class="flex items-center justify-between gap-2 mb-2">
+                        <span class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">{{ item.titulo }}</span>
+                        <span class="px-2 py-0.5 rounded-md text-[10px] font-bold {{ item.badge_cor }}">
+                            {{ item.badge }}
+                        </span>
+                    </div>
+                    <div class="text-xs font-semibold text-slate-800 dark:text-slate-200 leading-relaxed mb-2">
+                        {{ item.destaque }}
+                    </div>
+                    <p class="text-xs text-slate-600 dark:text-slate-400 leading-normal">
+                        {{ item.descricao|safe }}
+                    </p>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </section>
+    {% endif %}
+
+    <!-- ================================================================= -->
+    <!-- 2. BENTO GRID (LINHA 2): BLOCO ESQUERDO (8 COLS) + BLOCO DIREITO (4 COLS) -->
+    <!-- ================================================================= -->
+    <section class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+
+        <!-- BLOCO ESQUERDO (8 colunas): Evolução Mensal & 3 Sub-Cards na Base -->
+        <div class="lg:col-span-8 bento-card bento-item p-6 flex flex-col justify-between">
+            <div>
+                <!-- Topo: Consolidado e Legendas -->
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-[#F1F5F9] dark:border-slate-800 gap-3">
+                    <div>
+                        <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                            Evolução Mensal de Sinistros e Óbitos (Jan–Set 2026)
+                        </span>
+                        <div class="flex items-baseline gap-3 mt-1">
+                            <span class="text-3xl font-black tracking-tight text-slate-900 dark:text-white tabular-nums">
+                                {{ kpi_sinistros }}
+                            </span>
+                            <span class="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                                sinistros registrados no período
+                            </span>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-3 text-xs">
+                        <span class="inline-flex items-center gap-1.5 font-semibold text-slate-700 dark:text-slate-300">
+                            <span class="w-2.5 h-2.5 rounded-full bg-blue-600"></span> Sinistros
+                        </span>
+                        <span class="inline-flex items-center gap-1.5 font-semibold text-slate-700 dark:text-slate-300">
+                            <span class="w-2.5 h-0.5 bg-rose-500"></span> Óbitos
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Gráfico de Área Suavizada ECharts (com altura explícita em pixels) -->
+                <div class="w-full mt-3" id="chart-evolucao" style="width: 100%; height: 340px; min-height: 340px; display: block;"></div>
+            </div>
+
+            <!-- Base Interna: 3 Sub-cards Divididos de Gravidade -->
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-5 mt-4 border-t border-[#F1F5F9] dark:border-slate-800">
+                {% for bloco in sub_blocos_gravidade %}
+                <div class="p-3.5 rounded-xl bg-[#F8F9FB] dark:bg-[#1E293B]/60 border border-[#E5E7EB]/80 dark:border-slate-800 flex flex-col justify-between">
+                    <div>
+                        <div class="flex items-center justify-between text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-1">
+                            <span>{{ bloco.nome }}</span>
+                            <span class="font-bold {{ bloco.cor_texto }} tabular-nums">{{ bloco.pct }}%</span>
+                        </div>
+                        <div class="text-xl font-extrabold text-slate-900 dark:text-white tabular-nums">
+                            {{ bloco.total }}
+                        </div>
+                    </div>
+                    <div class="w-full h-1.5 rounded-full bg-slate-200 dark:bg-slate-700 mt-3 overflow-hidden">
+                        <div class="h-full rounded-full {{ bloco.cor_bg }}" style="width: {{ bloco.pct }}%;"></div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+        </div>
+
+        <!-- BLOCO DIREITO (4 colunas): Dia da Semana + Medidor Semicircular (Gauge) -->
+        <div class="lg:col-span-4 bento-card bento-item p-6 flex flex-col justify-between space-y-5">
+            
+            <!-- Parte Superior: Incidência por Dia da Semana (Barras ECharts) -->
+            <div>
+                <div class="flex items-center justify-between pb-2 border-b border-[#F1F5F9] dark:border-slate-800">
+                    <div>
+                        <h2 class="text-sm font-bold text-slate-900 dark:text-white">Incidência por Dia da Semana</h2>
+                        <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Distribuição do fluxo e criticidade</p>
+                    </div>
+                    <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                        Pico: {{ pico_dia_nome }}
+                    </span>
+                </div>
+
+                <!-- Gráfico de Barras ECharts (com altura explícita em pixels) -->
+                <div class="w-full mt-2" id="chart-dias" style="width: 100%; height: 340px; min-height: 340px; display: block;"></div>
+            </div>
+
+            <!-- Divisória Sutil -->
+            <div class="border-t border-[#F1F5F9] dark:border-slate-800 pt-4">
+
+                <div class="flex items-center justify-between mb-2">
+                    <div>
+                        <h3 class="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">Índice de Letalidade</h3>
+                        <p class="text-[11px] text-slate-500 dark:text-slate-400">Medidor semicircular de severidade</p>
+                    </div>
+                    <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                        Gauge 180°
+                    </span>
+                </div>
+
+                <!-- Medidor Semicircular (Gauge 30 Segmentos Radiais SVG) -->
+                <div class="relative py-2 flex flex-col items-center justify-center">
+                    <svg viewBox="0 0 240 135" class="w-full max-w-[220px]">
+                        <defs>
+                            <linearGradient id="gaugeGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                                <stop offset="0%" stop-color="#10B981" />
+                                <stop offset="50%" stop-color="#3B82F6" />
+                                <stop offset="100%" stop-color="#2563EB" />
+                            </linearGradient>
+                        </defs>
+                        <!-- 30 Segmentos Radiais -->
+                        <g id="gauge-ticks"></g>
+                    </svg>
+
+                    <!-- Percentual Grande Centralizado -->
+                    <div class="text-center -mt-7">
+                        <div class="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tabular-nums tracking-tight">
+                            {{ kpi_letalidade }}
+                        </div>
+                        <p class="text-[10px] font-medium text-slate-500 dark:text-slate-400">Taxa de Letalidade Geral</p>
+                    </div>
+                </div>
+
+                <!-- Estatística de Pista Simples -->
+                <div class="p-3 rounded-xl bg-[#F8F9FB] dark:bg-[#1E293B]/60 border border-[#E5E7EB]/80 dark:border-slate-800 mt-2">
+                    <div class="flex items-center justify-between text-xs font-semibold mb-1">
+                        <span class="text-slate-700 dark:text-slate-300">Óbitos em Pista Simples</span>
+                        <span class="font-bold text-rose-600 dark:text-rose-400 tabular-nums">{{ gauge_data.pista_simples_pct }}%</span>
+                    </div>
+                    <div class="w-full h-1.5 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
+                        <div class="h-full rounded-full bg-rose-500" style="width: {{ gauge_data.pista_simples_pct }}%;"></div>
+                    </div>
+                    <p class="text-[10px] text-slate-500 dark:text-slate-400 mt-1.5">
+                        {{ gauge_data.mortos_simples }} das fatalidades ocorreram em pistas simples.
+                    </p>
+                </div>
+
+            </div>
+
+        </div>
+
+    </section>
+
+    <!-- ================================================================= -->
+    <!-- 3. BLOCO INFERIOR (12 COLUNAS): TABELA TOP 8 RODOVIAS MAIS CRÍTICAS -->
+    <!-- ================================================================= -->
+    <section class="bento-card bento-item p-6">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-[#F1F5F9] dark:border-slate-800 gap-3">
+            <div>
+                <h2 class="text-base font-bold text-slate-900 dark:text-white">Top 8 Rodovias (BRs) Mais Críticas</h2>
+                <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Trechos federais com maior necessidade de reforço operacional e fiscalização</p>
+            </div>
+            <a href="{% url 'dashboard:rodovias' %}{{ query_string }}" 
+               class="inline-flex items-center gap-1.5 text-xs font-bold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 hover:underline transition">
+                <span>Ver todas as rodovias</span>
+                <span>→</span>
+            </a>
+        </div>
+
+        <div class="overflow-x-auto mt-2">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="border-b border-[#F1F5F9] dark:border-slate-800">
+                        <th class="py-3 px-3 text-[11px] font-bold uppercase tracking-wider text-[#94A3B8] dark:text-slate-400 w-12">#</th>
+                        <th class="py-3 px-3 text-[11px] font-bold uppercase tracking-wider text-[#94A3B8] dark:text-slate-400">Rodovia</th>
+                        <th class="py-3 px-3 text-[11px] font-bold uppercase tracking-wider text-[#94A3B8] dark:text-slate-400">Município Crítico</th>
+                        <th class="py-3 px-3 text-[11px] font-bold uppercase tracking-wider text-[#94A3B8] dark:text-slate-400 text-right">Sinistros</th>
+                        <th class="py-3 px-3 text-[11px] font-bold uppercase tracking-wider text-[#94A3B8] dark:text-slate-400 text-right">Óbitos</th>
+                        <th class="py-3 px-3 text-[11px] font-bold uppercase tracking-wider text-[#94A3B8] dark:text-slate-400 text-right">F. Graves</th>
+                        <th class="py-3 px-3 text-[11px] font-bold uppercase tracking-wider text-[#94A3B8] dark:text-slate-400">Índice de Letalidade</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-[#F1F5F9] dark:divide-slate-800">
+                    {% for row in top8_rodovias %}
+                    <tr class="hover:bg-[#F8FAFC] dark:hover:bg-slate-800/40 transition-colors group">
+                        <td class="py-3.5 px-3 text-xs font-bold text-slate-400 dark:text-slate-500 tabular-nums">{{ row.posicao }}</td>
+                        <td class="py-3.5 px-3">
+                            <a href="?uf={{ uf_selecionada }}&classificacao={{ classificacao_selecionada }}&br={{ row.br_codigo }}"
+                               class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold bg-blue-50 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 group-hover:bg-blue-600 group-hover:text-white transition"
+                               title="Filtrar por esta BR">
+                                {{ row.br_formatada }}
+                            </a>
+                        </td>
+                        <td class="py-3.5 px-3">
+                            <div class="font-semibold text-slate-800 dark:text-slate-200 text-xs">{{ row.municipio }}</div>
+                            <div class="text-[10px] text-slate-400 dark:text-slate-500">{{ row.sinistros_mun }} ocorrências no município</div>
+                        </td>
+                        <td class="py-3.5 px-3 font-bold tabular-nums text-slate-900 dark:text-white text-xs text-right">{{ row.sinistros }}</td>
+                        <td class="py-3.5 px-3 font-bold tabular-nums text-rose-600 dark:text-rose-400 text-xs text-right">{{ row.mortos }}</td>
+                        <td class="py-3.5 px-3 font-medium tabular-nums text-amber-600 dark:text-amber-400 text-xs text-right">{{ row.feridos_graves }}</td>
+                        <td class="py-3.5 px-3">
+                            <div class="flex items-center gap-2.5">
+                                <span class="font-bold tabular-nums text-xs {% if row.letalidade_num > 8 %}text-rose-600 dark:text-rose-400{% else %}text-slate-800 dark:text-slate-200{% endif %} min-w-[36px]">
+                                    {{ row.letalidade }}
+                                </span>
+                                <div class="w-24 h-1.5 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
+                                    <div class="h-full rounded-full {% if row.letalidade_num > 8 %}bg-rose-500{% else %}bg-blue-600{% endif %}" 
+                                         style="width: {{ row.letalidade_width }}%;"></div>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="text-center py-8 text-xs text-slate-400 dark:text-slate-500">
+                            Nenhum registro encontrado para os filtros ativos.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="pt-3 border-t border-[#F1F5F9] dark:border-slate-800 text-[11px] text-slate-400 dark:text-slate-500 flex items-center justify-between">
+            <span>Clique na sigla de qualquer BR para aplicar o filtro exclusivo</span>
+            <a href="{% url 'dashboard:rodovias' %}{{ query_string }}" class="text-blue-600 dark:text-blue-400 font-semibold hover:underline">
+                Acessar Módulo Completo de Rodovias →
+            </a>
+        </div>
+    </section>
+
+</div>
+
+{{ chart_evolucao_data|json_script:"data-chart-evolucao" }}
+{{ chart_dias_data|json_script:"data-chart-dias" }}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function() {
+    function getThemeSafe() {
+        if (typeof window.getChartTheme === 'function') {
+            return window.getChartTheme();
+        }
+        const isDark = document.documentElement.classList.contains('dark');
+        return {
+            isDark: isDark,
+            textColor: isDark ? '#94A3B8' : '#64748B',
+            splitLineColor: isDark ? 'rgba(148, 163, 184, 0.12)' : '#F1F5F9',
+            axisLineColor: isDark ? '#334155' : '#E2E8F0',
+            inactiveBarColor: isDark ? '#1E293B' : '#94A3B8',
+            gaugeBgColor: isDark ? '#1E293B' : '#E2E8F0',
+            tooltipBg: isDark ? '#1E293B' : '#FFFFFF',
+            tooltipBorder: isDark ? '#334155' : '#E2E8F0',
+            tooltipText: isDark ? '#F1F5F9' : '#0F172A',
+        };
+    }
+
+    // =========================================================================
+    // RENDERIZADOR NATIVO SVG FALLBACK: EVOLUÇÃO MENSAL
+    // Garante que o gráfico de Evolução Mensal renderize 100% das vezes mesmo se
+    // o CDN do ECharts falhar, for bloqueado por firewall ou demorar a carregar.
+    // =========================================================================
+    function renderFallbackEvolucaoSVG(container, data, theme) {
+        if (!container || !data || !data.meses || data.meses.length === 0) return;
+        theme = theme || getThemeSafe();
+        container.innerHTML = '';
+        container.style.position = 'relative';
+
+        const W = 800;
+        const H = 340;
+        const padTop = 30;
+        const padBottom = 40;
+        const padLeft = 65;
+        const padRight = 30;
+        const plotW = W - padLeft - padRight;
+        const plotH = H - padTop - padBottom;
+
+        const maxVal = Math.max(...data.sinistros, 1) * 1.15;
+        const n = data.meses.length;
+
+        const getX = (idx) => padLeft + (idx / (n - 1)) * plotW;
+        const getY = (val) => padTop + plotH - (val / maxVal) * plotH;
+
+        const pointsSinistros = data.sinistros.map((val, idx) => ({ x: getX(idx), y: getY(val), val, mes: data.meses[idx] }));
+        const pointsObitos = (data.obitos || []).map((val, idx) => ({ x: getX(idx), y: getY(val), val, mes: data.meses[idx] }));
+
+        function bezierPath(pts) {
+            if (!pts.length) return '';
+            if (pts.length === 1) return `M ${pts[0].x.toFixed(1)},${pts[0].y.toFixed(1)}`;
+            let d = `M ${pts[0].x.toFixed(1)},${pts[0].y.toFixed(1)}`;
+            for (let i = 0; i < pts.length - 1; i++) {
+                const p0 = pts[i === 0 ? 0 : i - 1];
+                const p1 = pts[i];
+                const p2 = pts[i + 1];
+                const p3 = pts[i + 2 < pts.length ? i + 2 : i + 1];
+                const cp1x = p1.x + (p2.x - p0.x) / 6;
+                const cp1y = p1.y + (p2.y - p0.y) / 6;
+                const cp2x = p2.x - (p3.x - p1.x) / 6;
+                const cp2y = p2.y - (p3.y - p1.y) / 6;
+                d += ` C ${cp1x.toFixed(1)},${cp1y.toFixed(1)} ${cp2x.toFixed(1)},${cp2y.toFixed(1)} ${p2.x.toFixed(1)},${p2.y.toFixed(1)}`;
+            }
+            return d;
+        }
+
+        const pathSinistros = bezierPath(pointsSinistros);
+        const bottomY = padTop + plotH;
+        const areaSinistros = `${pathSinistros} L ${pointsSinistros[n - 1].x.toFixed(1)},${bottomY} L ${pointsSinistros[0].x.toFixed(1)},${bottomY} Z`;
+        const pathObitos = bezierPath(pointsObitos);
+
+        let gridLinesSVG = '';
+        const numTicks = 5;
+        for (let i = 0; i <= numTicks; i++) {
+            const valTick = Math.round((maxVal / numTicks) * i);
+            const yTick = padTop + plotH - (valTick / maxVal) * plotH;
+            gridLinesSVG += `
+                <line x1="${padLeft}" y1="${yTick.toFixed(1)}" x2="${W - padRight}" y2="${yTick.toFixed(1)}" stroke="${theme.splitLineColor}" stroke-dasharray="4,4" stroke-width="1" />
+                <text x="${padLeft - 10}" y="${(yTick + 4).toFixed(1)}" text-anchor="end" font-size="10" fill="${theme.textColor}" font-family="Inter, sans-serif">${valTick.toLocaleString('pt-BR')}</text>
+            `;
+        }
+
+        let xLabelsSVG = '';
+        data.meses.forEach((mes, idx) => {
+            const x = getX(idx);
+            xLabelsSVG += `
+                <text x="${x.toFixed(1)}" y="${H - 12}" text-anchor="middle" font-size="11" font-weight="500" fill="${theme.textColor}" font-family="Inter, sans-serif">${mes}</text>
+            `;
+        });
+
+        let dotsSinistrosSVG = '';
+        pointsSinistros.forEach(p => {
+            dotsSinistrosSVG += `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="4.5" fill="#2563EB" stroke="#FFFFFF" stroke-width="2" />`;
+        });
+
+        let dotsObitosSVG = '';
+        pointsObitos.forEach(p => {
+            dotsObitosSVG += `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="3.5" fill="#EF4444" stroke="#FFFFFF" stroke-width="1.5" />`;
+        });
+
+        let triggerZonesSVG = '';
+        const colW = plotW / (n - 1);
+        data.meses.forEach((mes, idx) => {
+            const xCenter = getX(idx);
+            const xLeft = idx === 0 ? padLeft : xCenter - colW / 2;
+            const width = idx === 0 || idx === n - 1 ? colW / 2 : colW;
+            triggerZonesSVG += `
+                <rect x="${xLeft.toFixed(1)}" y="${padTop}" width="${width.toFixed(1)}" height="${plotH}" fill="transparent" class="cursor-pointer" data-idx="${idx}" />
+            `;
+        });
+
+        container.innerHTML = `
+            <svg viewBox="0 0 ${W} ${H}" width="100%" height="100%" style="overflow: visible; display: block;" preserveAspectRatio="none">
+                <defs>
+                    <linearGradient id="fallbackAreaGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stop-color="#2563EB" stop-opacity="0.25" />
+                        <stop offset="100%" stop-color="#2563EB" stop-opacity="0.00" />
+                    </linearGradient>
+                </defs>
+                ${gridLinesSVG}
+                <line x1="${padLeft}" y1="${bottomY}" x2="${W - padRight}" y2="${bottomY}" stroke="${theme.axisLineColor}" stroke-width="1" />
+                ${xLabelsSVG}
+                <path d="${areaSinistros}" fill="url(#fallbackAreaGrad)" />
+                <path d="${pathSinistros}" fill="none" stroke="#2563EB" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+                <path d="${pathObitos}" fill="none" stroke="#EF4444" stroke-width="2" stroke-dasharray="4,4" stroke-linecap="round" />
+                ${dotsSinistrosSVG}
+                ${dotsObitosSVG}
+                ${triggerZonesSVG}
+            </svg>
+            <div id="fallback-tooltip-evolucao" style="display:none; position:absolute; pointer-events:none; z-index:50; background:${theme.tooltipBg}; border:1px solid ${theme.tooltipBorder}; border-radius:8px; padding:8px 12px; color:${theme.tooltipText}; font-size:12px; font-family:Inter,sans-serif; box-shadow:0 8px 24px rgba(0,0,0,0.25);"></div>
+        `;
+
+        const tt = container.querySelector('#fallback-tooltip-evolucao');
+        const rects = container.querySelectorAll('rect[data-idx]');
+        rects.forEach(rect => {
+            rect.addEventListener('mouseenter', () => {
+                const idx = parseInt(rect.getAttribute('data-idx'));
+                const mes = data.meses[idx];
+                const sin = data.sinistros[idx];
+                const ob = data.obitos ? data.obitos[idx] : 0;
+                tt.innerHTML = `
+                    <div style="font-weight:bold; margin-bottom:4px;">${mes} de 2026</div>
+                    <div style="display:flex; justify-content:space-between; gap:16px; margin:2px 0;">
+                        <span style="color:#60A5FA;">● Sinistros:</span>
+                        <b style="font-variant-numeric:tabular-nums;">${sin.toLocaleString('pt-BR')}</b>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; gap:16px; margin:2px 0;">
+                        <span style="color:#F87171;">● Óbitos:</span>
+                        <b style="font-variant-numeric:tabular-nums;">${ob.toLocaleString('pt-BR')}</b>
+                    </div>
+                `;
+                tt.style.display = 'block';
+            });
+            rect.addEventListener('mousemove', (e) => {
+                const bbox = container.getBoundingClientRect();
+                let x = e.clientX - bbox.left + 15;
+                let y = e.clientY - bbox.top - 20;
+                if (x + 180 > bbox.width) x = bbox.width - 190;
+                if (y < 0) y = 10;
+                tt.style.left = x + 'px';
+                tt.style.top = y + 'px';
+            });
+            rect.addEventListener('mouseleave', () => {
+                tt.style.display = 'none';
+            });
+        });
+    }
+
+    // =========================================================================
+    // RENDERIZADOR NATIVO SVG FALLBACK: DIA DA SEMANA
+    // =========================================================================
+    function renderFallbackDiasSVG(container, data, theme) {
+        if (!container || !data || !data.dias || data.dias.length === 0) return;
+        theme = theme || getThemeSafe();
+        container.innerHTML = '';
+        container.style.position = 'relative';
+
+        const W = 450;
+        const H = 340;
+        const padTop = 30;
+        const padBottom = 40;
+        const padLeft = 55;
+        const padRight = 20;
+        const plotW = W - padLeft - padRight;
+        const plotH = H - padTop - padBottom;
+
+        const maxVal = Math.max(...data.sinistros, 1) * 1.15;
+        const n = data.dias.length;
+        const barW = Math.min(38, (plotW / n) * 0.65);
+        const step = plotW / n;
+        const bottomY = padTop + plotH;
+
+        let gridLinesSVG = '';
+        const numTicks = 5;
+        for (let i = 0; i <= numTicks; i++) {
+            const valTick = Math.round((maxVal / numTicks) * i);
+            const yTick = padTop + plotH - (valTick / maxVal) * plotH;
+            gridLinesSVG += `
+                <line x1="${padLeft}" y1="${yTick.toFixed(1)}" x2="${W - padRight}" y2="${yTick.toFixed(1)}" stroke="${theme.splitLineColor}" stroke-dasharray="4,4" stroke-width="1" />
+                <text x="${padLeft - 8}" y="${(yTick + 4).toFixed(1)}" text-anchor="end" font-size="10" fill="${theme.textColor}" font-family="Inter, sans-serif">${valTick.toLocaleString('pt-BR')}</text>
+            `;
+        }
+
+        let barsSVG = '';
+        let xLabelsSVG = '';
+        data.dias.forEach((dia, idx) => {
+            const val = data.sinistros[idx];
+            const barH = (val / maxVal) * plotH;
+            const x = padLeft + idx * step + (step - barW) / 2;
+            const y = bottomY - barH;
+            const isPeak = idx === data.pico_index;
+            const color = isPeak ? '#2563EB' : theme.inactiveBarColor;
+
+            barsSVG += `
+                <rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${barH.toFixed(1)}" 
+                      rx="6" ry="6" fill="${color}" class="cursor-pointer transition-colors" data-idx="${idx}" />
+            `;
+
+            const xCenter = padLeft + idx * step + step / 2;
+            xLabelsSVG += `
+                <text x="${xCenter.toFixed(1)}" y="${H - 12}" text-anchor="middle" font-size="11" font-weight="600" fill="${theme.textColor}" font-family="Inter, sans-serif">${dia}</text>
+            `;
+        });
+
+        container.innerHTML = `
+            <svg viewBox="0 0 ${W} ${H}" width="100%" height="100%" style="overflow: visible; display: block;" preserveAspectRatio="none">
+                ${gridLinesSVG}
+                <line x1="${padLeft}" y1="${bottomY}" x2="${W - padRight}" y2="${bottomY}" stroke="${theme.axisLineColor}" stroke-width="1" />
+                ${barsSVG}
+                ${xLabelsSVG}
+            </svg>
+            <div id="fallback-tooltip-dias" style="display:none; position:absolute; pointer-events:none; z-index:50; background:${theme.tooltipBg}; border:1px solid ${theme.tooltipBorder}; border-radius:8px; padding:8px 12px; color:${theme.tooltipText}; font-size:12px; font-family:Inter,sans-serif; box-shadow:0 8px 24px rgba(0,0,0,0.25);"></div>
+        `;
+
+        const tt = container.querySelector('#fallback-tooltip-dias');
+        const barEls = container.querySelectorAll('rect[data-idx]');
+        barEls.forEach(bar => {
+            bar.addEventListener('mouseenter', () => {
+                const idx = parseInt(bar.getAttribute('data-idx'));
+                const nomeCompleto = data.dias_completos ? data.dias_completos[idx] : data.dias[idx];
+                const sin = data.sinistros[idx];
+                const ob = data.obitos ? data.obitos[idx] : 0;
+                bar.setAttribute('fill', '#1D4ED8');
+                tt.innerHTML = `
+                    <div style="font-weight:bold; margin-bottom:4px;">${nomeCompleto}</div>
+                    <div style="display:flex; justify-content:space-between; gap:16px; margin:2px 0;">
+                        <span style="color:#93C5FD;">Sinistros:</span>
+                        <b style="font-variant-numeric:tabular-nums;">${sin.toLocaleString('pt-BR')}</b>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; gap:16px; margin:2px 0;">
+                        <span style="color:#FCA5A5;">Óbitos:</span>
+                        <b style="font-variant-numeric:tabular-nums;">${ob.toLocaleString('pt-BR')}</b>
+                    </div>
+                `;
+                tt.style.display = 'block';
+            });
+            bar.addEventListener('mousemove', (e) => {
+                const bbox = container.getBoundingClientRect();
+                let x = e.clientX - bbox.left + 15;
+                let y = e.clientY - bbox.top - 20;
+                if (x + 160 > bbox.width) x = bbox.width - 170;
+                if (y < 0) y = 10;
+                tt.style.left = x + 'px';
+                tt.style.top = y + 'px';
+            });
+            bar.addEventListener('mouseleave', () => {
+                const idx = parseInt(bar.getAttribute('data-idx'));
+                bar.setAttribute('fill', idx === data.pico_index ? '#2563EB' : theme.inactiveBarColor);
+                tt.style.display = 'none';
+            });
+        });
+    }
+
+    function initIndexCharts() {
+        window.echartsInstances = window.echartsInstances || [];
+        const theme = getThemeSafe();
+
+        // =========================================================================
+        // 1. GRÁFICO PRINCIPAL: EVOLUÇÃO TEMPORAL MENSAL
+        // =========================================================================
+        try {
+            const elEvolucao = document.getElementById('chart-evolucao');
+            const dataEvolucaoEl = document.getElementById('data-chart-evolucao');
+
+            if (elEvolucao && dataEvolucaoEl) {
+                const evolucaoData = JSON.parse(dataEvolucaoEl.textContent);
+                if (evolucaoData && evolucaoData.meses && evolucaoData.meses.length > 0) {
+                    let rendered = false;
+
+                    if (typeof echarts !== 'undefined') {
+                        try {
+                            const existing = echarts.getInstanceByDom(elEvolucao);
+                            if (existing) {
+                                existing.dispose();
+                            }
+
+                            const chartEvolucao = echarts.init(elEvolucao, null, { renderer: 'svg' });
+                            window.echartsInstances.push(chartEvolucao);
+
+                            const optionEvolucao = {
+                                backgroundColor: 'transparent',
+                                tooltip: {
+                                    trigger: 'axis',
+                                    backgroundColor: theme.tooltipBg,
+                                    borderColor: theme.tooltipBorder,
+                                    borderWidth: 1,
+                                    padding: [10, 14],
+                                    textStyle: { color: theme.tooltipText, fontSize: 12, fontFamily: 'Inter, sans-serif' },
+                                    formatter: function(params) {
+                                        let res = `<div style="font-weight: bold; margin-bottom: 4px;">${params[0].name} de 2026</div>`;
+                                        params.forEach(p => {
+                                            res += `<div style="display:flex; justify-content:space-between; gap:16px; margin: 2px 0;">
+                                                <span>${p.marker} ${p.seriesName}:</span>
+                                                <span style="font-weight:bold; font-variant-numeric:tabular-nums;">${p.value.toLocaleString('pt-BR')}</span>
+                                            </div>`;
+                                        });
+                                        return res;
+                                    }
+                                },
+                                grid: {
+                                    top: 25,
+                                    right: 20,
+                                    bottom: 25,
+                                    left: 55
+                                },
+                                xAxis: {
+                                    type: 'category',
+                                    data: evolucaoData.meses,
+                                    boundaryGap: false,
+                                    axisLine: { lineStyle: { color: theme.axisLineColor } },
+                                    axisTick: { show: false },
+                                    axisLabel: { color: theme.textColor, fontSize: 11, fontWeight: 500 }
+                                },
+                                yaxis: {
+                                    type: 'value',
+                                    splitLine: { lineStyle: { color: theme.splitLineColor, type: 'dashed' } },
+                                    axisLabel: { color: theme.textColor, fontSize: 10 }
+                                },
+                                series: [
+                                    {
+                                        name: 'Sinistros',
+                                        type: 'line',
+                                        smooth: true,
+                                        showSymbol: true,
+                                        symbolSize: 6,
+                                        itemStyle: { color: '#2563EB' },
+                                        lineStyle: { width: 3, color: '#2563EB' },
+                                        areaStyle: {
+                                            color: {
+                                                type: 'linear',
+                                                x: 0,
+                                                y: 0,
+                                                x2: 0,
+                                                y2: 1,
+                                                colorStops: [
+                                                    { offset: 0, color: 'rgba(37, 99, 235, 0.25)' },
+                                                    { offset: 1, color: 'rgba(37, 99, 235, 0.00)' }
+                                                ]
+                                            }
+                                        },
+                                        emphasis: { focus: 'series' },
+                                        data: evolucaoData.sinistros
+                                    },
+                                    {
+                                        name: 'Óbitos',
+                                        type: 'line',
+                                        smooth: true,
+                                        showSymbol: true,
+                                        symbolSize: 6,
+                                        itemStyle: { color: '#EF4444' },
+                                        lineStyle: { width: 2, color: '#EF4444', type: 'dashed' },
+                                        emphasis: { focus: 'series' },
+                                        data: evolucaoData.obitos
+                                    }
+                                ]
+                            };
+
+                            chartEvolucao.setOption(optionEvolucao);
+                            rendered = true;
+                            setTimeout(() => chartEvolucao.resize(), 100);
+                            window.addEventListener('resize', () => chartEvolucao.resize());
+                            if (window.ResizeObserver) {
+                                new ResizeObserver(() => chartEvolucao.resize()).observe(elEvolucao);
+                            }
+                        } catch (echartErr) {
+                            console.warn('Erro ao inicializar ECharts para Evolução Mensal, acionando SVG nativo:', echartErr);
+                        }
+                    }
+
+                    if (!rendered) {
+                        renderFallbackEvolucaoSVG(elEvolucao, evolucaoData, theme);
+                    }
+                }
+            }
+        } catch (e) {
+            console.error('Erro no gráfico Evolução Mensal:', e);
+        }
+
+        // =========================================================================
+        // 2. GRÁFICO DE BARRAS INTERATIVO: DIA DA SEMANA
+        // =========================================================================
+        try {
+            const elDias = document.getElementById('chart-dias');
+            const dataDiasEl = document.getElementById('data-chart-dias');
+
+            if (elDias && dataDiasEl) {
+                const diasData = JSON.parse(dataDiasEl.textContent);
+                if (diasData && diasData.dias && diasData.dias.length > 0) {
+                    let renderedDias = false;
+
+                    if (typeof echarts !== 'undefined') {
+                        try {
+                            const existing = echarts.getInstanceByDom(elDias);
+                            if (existing) {
+                                existing.dispose();
+                            }
+
+                            const chartDias = echarts.init(elDias, null, { renderer: 'svg' });
+                            window.echartsInstances.push(chartDias);
+
+                            const optionDias = {
+                                backgroundColor: 'transparent',
+                                tooltip: {
+                                    trigger: 'axis',
+                                    axisPointer: { type: 'shadow' },
+                                    backgroundColor: theme.tooltipBg,
+                                    borderColor: theme.tooltipBorder,
+                                    borderWidth: 1,
+                                    padding: [8, 12],
+                                    textStyle: { color: theme.tooltipText, fontSize: 12, fontFamily: 'Inter, sans-serif' },
+                                    formatter: function(params) {
+                                        const p = params[0];
+                                        const idx = p.dataIndex;
+                                        const nomeCompleto = diasData.dias_completos ? diasData.dias_completos[idx] : p.name;
+                                        const obitos = diasData.obitos ? diasData.obitos[idx] : 0;
+                                        return `<b>${nomeCompleto}</b><br/>
+                                                Sinistros: <b>${p.value.toLocaleString('pt-BR')}</b><br/>
+                                                Óbitos: <b>${obitos.toLocaleString('pt-BR')}</b>`;
+                                    }
+                                },
+                                grid: {
+                                    top: 25,
+                                    right: 15,
+                                    bottom: 25,
+                                    left: 50
+                                },
+                                xAxis: {
+                                    type: 'category',
+                                    data: diasData.dias,
+                                    axisLine: { lineStyle: { color: theme.axisLineColor } },
+                                    axisTick: { show: false },
+                                    axisLabel: { color: theme.textColor, fontSize: 11, fontWeight: 600 }
+                                },
+                                yaxis: {
+                                    type: 'value',
+                                    splitLine: { lineStyle: { color: theme.splitLineColor, type: 'dashed' } },
+                                    axisLabel: { color: theme.textColor, fontSize: 10 }
+                                },
+                                series: [
+                                    {
+                                        name: 'Sinistros',
+                                        type: 'bar',
+                                        barWidth: '55%',
+                                        data: diasData.sinistros.map((val, idx) => ({
+                                            value: val,
+                                            itemStyle: {
+                                                color: idx === diasData.pico_index ? '#2563EB' : theme.inactiveBarColor,
+                                                borderRadius: [6, 6, 0, 0]
+                                            }
+                                        })),
+                                        emphasis: {
+                                            focus: 'series',
+                                            itemStyle: {
+                                                color: '#1D4ED8',
+                                                shadowBlur: 10,
+                                                shadowColor: 'rgba(37, 99, 235, 0.35)'
+                                            }
+                                        }
+                                    }
+                                ]
+                            };
+
+                            chartDias.setOption(optionDias);
+                            renderedDias = true;
+                            setTimeout(() => chartDias.resize(), 100);
+                            window.addEventListener('resize', () => chartDias.resize());
+                            if (window.ResizeObserver) {
+                                new ResizeObserver(() => chartDias.resize()).observe(elDias);
+                            }
+                        } catch (echartDiasErr) {
+                            console.warn('Erro ao inicializar ECharts para Dias da Semana, acionando SVG nativo:', echartDiasErr);
+                        }
+                    }
+
+                    if (!renderedDias) {
+                        renderFallbackDiasSVG(elDias, diasData, theme);
+                    }
+                }
+            }
+        } catch (e) {
+            console.error('Erro no gráfico Dias da Semana:', e);
+        }
+
+        // =========================================================================
+        // 3. MEDIDOR SEMICIRCULAR SEGMENTADO (30 TRAÇOS RADIAIS VIA SVG)
+        // =========================================================================
+        try {
+            const gaugeContainer = document.getElementById('gauge-ticks');
+            if (gaugeContainer) {
+                gaugeContainer.innerHTML = '';
+                const totalTicks = 30;
+                const activeTicks = {{ gauge_data.segmentos_ativos|default:0 }};
+                const cx = 120, cy = 115, rInner = 74, rOuter = 98;
+
+                for (let i = 0; i < totalTicks; i++) {
+                    const angleDeg = 180 - (i / (totalTicks - 1)) * 180;
+                    const angleRad = (angleDeg * Math.PI) / 180;
+
+                    const x1 = cx + rInner * Math.cos(angleRad);
+                    const y1 = cy - rInner * Math.sin(angleRad);
+                    const x2 = cx + rOuter * Math.cos(angleRad);
+                    const y2 = cy - rOuter * Math.sin(angleRad);
+
+                    const isActive = i < activeTicks;
+                    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                    line.setAttribute('x1', x1);
+                    line.setAttribute('y1', y1);
+                    line.setAttribute('x2', x2);
+                    line.setAttribute('y2', y2);
+                    line.setAttribute('stroke-width', '4');
+                    line.setAttribute('stroke-linecap', 'round');
+                    line.setAttribute('stroke', isActive ? 'url(#gaugeGradient)' : theme.gaugeBgColor);
+                    line.setAttribute('opacity', '1');
+
+                    gaugeContainer.appendChild(line);
+                }
+            }
+        } catch (e) {
+            console.error('Erro no medidor gauge:', e);
+        }
+    }
+
+    if (document.readyState === 'complete') {
+        initIndexCharts();
+    } else {
+        window.addEventListener('load', initIndexCharts);
+    }
+
+    // Reagir instantaneamente a trocas de tema Dark / Light
+    window.addEventListener('themeChanged', function() {
+        initIndexCharts();
+    });
+})();
+</script>
+{% endblock %}
