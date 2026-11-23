@@ -8,6 +8,7 @@ Descrição: Arquitetura de Views do Observatório de Sinistros Rodoviários (PR
            - API GeoJSON oficial e exportação rápida de relatórios em CSV
 """
 
+import os
 from pathlib import Path
 import json
 import urllib.parse
@@ -25,19 +26,19 @@ def _carregar_e_limpar_dados():
     Localiza, lê e realiza a limpeza inicial do CSV da PRF.
     Mantém o DataFrame em memória (RAM) para resposta instantânea (<20ms).
     """
-    caminhos = [
-        settings.BASE_DIR / 'data' / 'datatran2026.csv',
-        Path('data/datatran2026.csv'),
-        Path('Projeto_transito/data/datatran2026.csv')
-    ]
-    
-    caminho_csv = None
-    for p in caminhos:
-        if p.exists():
-            caminho_csv = p
-            break
+    caminho_csv = os.path.join(settings.BASE_DIR, 'data', 'datatran2026.csv')
+    if not os.path.exists(caminho_csv):
+        candidatos = [
+            Path('data/datatran2026.csv'),
+            Path('Projeto_transito/data/datatran2026.csv'),
+            Path(settings.BASE_DIR).parent / 'data' / 'datatran2026.csv'
+        ]
+        for p in candidatos:
+            if os.path.exists(p):
+                caminho_csv = str(p)
+                break
             
-    if not caminho_csv:
+    if not caminho_csv or not os.path.exists(caminho_csv):
         raise FileNotFoundError("Arquivo 'data/datatran2026.csv' não foi encontrado.")
 
     # Leitura com latin1 e delimitador ';' oficial da PRF
@@ -91,18 +92,24 @@ def _carregar_geojson_brasil():
     Carrega a malha geográfica oficial dos 27 estados do Brasil (GeoJSON)
     em cache na memória.
     """
-    caminhos_geo = [
-        settings.BASE_DIR / 'data' / 'brazil_geo.json',
-        Path('data/brazil_geo.json'),
-        Path('Projeto_transito/data/brazil_geo.json')
-    ]
-    for p in caminhos_geo:
-        if p.exists():
-            try:
-                with open(p, 'r', encoding='utf-8') as f:
-                    return json.load(f)
-            except Exception:
-                pass
+    caminho_geo = os.path.join(settings.BASE_DIR, 'data', 'brazil_geo.json')
+    if not os.path.exists(caminho_geo):
+        candidatos_geo = [
+            Path('data/brazil_geo.json'),
+            Path('Projeto_transito/data/brazil_geo.json'),
+            Path(settings.BASE_DIR).parent / 'data' / 'brazil_geo.json'
+        ]
+        for p in candidatos_geo:
+            if os.path.exists(p):
+                caminho_geo = str(p)
+                break
+
+    if caminho_geo and os.path.exists(caminho_geo):
+        try:
+            with open(caminho_geo, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except Exception:
+            pass
     return None
 
 
