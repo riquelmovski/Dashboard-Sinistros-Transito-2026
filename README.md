@@ -192,6 +192,36 @@ Acesse a aplicação no navegador em:
 
 ---
 
+## 🌐 Publicação Estática no GitHub Pages (`docs/`)
+
+O projeto inclui uma arquitetura de **exportação estática (SPA Serverless)** pronta para hospedagem gratuita e de alta velocidade no **GitHub Pages** diretamente a partir do diretório `docs/`.
+
+### 1. Atualizar ou Gerar os Dados Estáticos
+Execute o script automatizado na raiz:
+```bash
+python exportar_github_pages.py
+```
+O script processa o `data/datatran2026.csv` com Pandas e gera:
+- `docs/data/resumo_nacional.json`: Agregações nacionais, KPIs, séries mensais, ciclo semanal, top rodovias, causas, 1.858 municípios e insights automáticos.
+- `docs/data/por_uf.json`: Dicionário indexado pelas 27 UFs com recortes e insights específicos de cada estado.
+- `docs/data/brazil_geo.json`: Malha geográfica vetorial oficial dos 27 estados do Brasil.
+
+### 2. Testar Localmente a Versão Estática
+```bash
+python3 -m http.server 8080 --directory docs
+```
+Acesse: **[http://localhost:8080](http://localhost:8080)**
+
+### 3. Ativar no Repositório do GitHub
+1. Vá até o repositório no GitHub e clique na aba **Settings**.
+2. Na barra lateral esquerda, clique em **Pages**.
+3. Na seção **Build and deployment** / **Source**, selecione **Deploy from a branch**.
+4. Em **Branch**, selecione `main` (ou `master`) e no seletor de pasta escolha `/docs`.
+5. Clique em **Save**. Em instantes seu dashboard estará no ar em:
+   `https://<seu-usuario>.github.io/<seu-repositorio>/`
+
+---
+
 ## 🛠️ Stack Tecnológico
 
 | Camada | Tecnologia | Propósito |

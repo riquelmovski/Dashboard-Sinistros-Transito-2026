@@ -1,0 +1,1511 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PRF Analytics 2026 — Observatório de Sinistros Rodoviários</title>
+    <meta name="description" content="Dashboard analítico estático de inteligência operacional, geoespacial e comportamental da Polícia Rodoviária Federal (PRF).">
+
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+    <!-- Tailwind CSS (CDN com suporte a Dark Mode 'class') -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        prf: {
+                            blue: '#1E3A8A',
+                            gold: '#F59E0B',
+                            dark: '#0F172A',
+                        }
+                    }
+                }
+            }
+        };
+    </script>
+
+    <!-- Script Anti-FOUC (Prevenção de flash branco) -->
+    <script>
+        (function() {
+            try {
+                const savedTheme = localStorage.getItem('theme');
+                const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                if (savedTheme === 'dark' || (!savedTheme && systemPrefersDark)) {
+                    document.documentElement.classList.add('dark');
+                } else {
+                    document.documentElement.classList.remove('dark');
+                }
+            } catch (e) {}
+        })();
+
+        // Paleta adaptativa global para ECharts e SVGs
+        window.getChartTheme = function() {
+            const isDark = document.documentElement.classList.contains('dark');
+            return {
+                isDark: isDark,
+                textColor: isDark ? '#94A3B8' : '#64748B',
+                titleColor: isDark ? '#F1F5F9' : '#0F172A',
+                splitLineColor: isDark ? 'rgba(148, 163, 184, 0.12)' : '#F1F5F9',
+                axisLineColor: isDark ? '#334155' : '#E2E8F0',
+                inactiveBarColor: isDark ? '#1E293B' : '#94A3B8',
+                gaugeBgColor: isDark ? '#1E293B' : '#E2E8F0',
+                cardBg: isDark ? '#111827' : '#FFFFFF',
+                tooltipBg: isDark ? 'rgba(15, 23, 42, 0.96)' : 'rgba(15, 23, 42, 0.94)',
+                tooltipBorder: isDark ? 'rgba(71, 85, 105, 0.6)' : 'rgba(255, 255, 255, 0.2)',
+                tooltipText: '#FFFFFF'
+            };
+        };
+    </script>
+
+    <!-- Alpine.js 3.13 -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.5/dist/cdn.min.js"></script>
+
+    <!-- Apache ECharts 5.5 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.5.0/echarts.min.js"></script>
+
+    <!-- GSAP 3.12 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+
+    <style>
+        :root {
+            --font-inter: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+        }
+
+        body {
+            font-family: var(--font-inter);
+            background-color: #F8F9FB;
+            color: #0F172A;
+            letter-spacing: -0.012em;
+        }
+
+        .dark body {
+            background-color: #0B0F19;
+            color: #F1F5F9;
+        }
+
+        .tabular-nums {
+            font-variant-numeric: tabular-nums;
+        }
+
+        .bento-card {
+            background-color: #FFFFFF;
+            border: 1px solid #E5E7EB;
+            border-radius: 18px;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05);
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .bento-card:hover {
+            border-color: #CBD5E1;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.06), 0 8px 10px -6px rgba(0, 0, 0, 0.04);
+        }
+
+        .dark .bento-card {
+            background-color: #111827;
+            border-color: rgba(51, 65, 85, 0.6);
+            box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.35);
+        }
+
+        .dark .bento-card:hover {
+            border-color: rgba(100, 116, 139, 0.6);
+            box-shadow: 0 12px 28px -4px rgba(0, 0, 0, 0.5);
+        }
+
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #CBD5E1;
+            border-radius: 9999px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94A3B8;
+        }
+        .dark ::-webkit-scrollbar-thumb {
+            background: #334155;
+        }
+        .dark ::-webkit-scrollbar-thumb:hover {
+            background: #475569;
+        }
+    </style>
+</head>
+<body class="h-full flex overflow-hidden antialiased bg-[#F8F9FB] dark:bg-[#0B0F19] text-[#0F172A] dark:text-slate-100 transition-colors duration-200"
+      x-data="dashboardSPA"
+      x-init="init()">
+
+    <!-- ===================================================================== -->
+    <!-- 1. SIDEBAR FIXA À ESQUERDA (250px)                                    -->
+    <!-- ===================================================================== -->
+    <aside class="w-[250px] bg-white dark:bg-[#111827] border-r border-[#E5E7EB] dark:border-slate-800 flex flex-col justify-between shrink-0 z-40 transition-transform duration-300 md:translate-x-0 fixed md:static inset-y-0 left-0"
+           :class="sidebarOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full md:translate-x-0'">
+
+        <div>
+            <!-- Topo da Sidebar: Logo & Nome Institucional -->
+            <div class="h-[68px] px-5 flex items-center justify-between border-b border-[#E5E7EB] dark:border-slate-800">
+                <button type="button" @click="activeTab = 'visao_geral'" class="flex items-center gap-3 group text-left">
+                    <div class="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-md shadow-blue-500/20 group-hover:scale-105 transition-transform">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-1.5">
+                            <span class="text-sm font-black tracking-tight text-slate-900 dark:text-white">PRF Analytics</span>
+                            <span class="text-[10px] font-bold px-1.5 py-0.2 rounded bg-blue-50 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">2026</span>
+                        </div>
+                        <p class="text-[10px] text-slate-400 dark:text-slate-500 font-medium">Observatório Rodoviário</p>
+                    </div>
+                </button>
+
+                <!-- Fechar sidebar no mobile -->
+                <button type="button" class="md:hidden text-slate-400 hover:text-slate-700 dark:hover:text-slate-200" @click="sidebarOpen = false">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+
+            <!-- Navegação Dividida em Grupos -->
+            <nav class="p-3.5 space-y-6">
+                <!-- GRUPO 1: VISÃO GERAL -->
+                <div>
+                    <h3 class="px-3 text-[11px] font-bold uppercase tracking-wider text-[#94A3B8] mb-1.5">
+                        Visão Geral
+                    </h3>
+                    <div class="space-y-0.5">
+                        <button type="button"
+                                @click="switchTab('visao_geral')"
+                                class="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold transition-all text-left"
+                                :class="activeTab === 'visao_geral' ? 'bg-[#EFF6FF] dark:bg-blue-950/50 text-[#2563EB] dark:text-blue-400 border-l-[3px] border-[#2563EB]' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-slate-800/60 border-l-[3px] border-transparent'">
+                            <svg class="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"/></svg>
+                            <span>Dashboard Principal</span>
+                        </button>
+
+                        <button type="button"
+                                @click="switchTab('mapa')"
+                                class="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold transition-all text-left"
+                                :class="activeTab === 'mapa' ? 'bg-[#EFF6FF] dark:bg-blue-950/50 text-[#2563EB] dark:text-blue-400 border-l-[3px] border-[#2563EB]' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-slate-800/60 border-l-[3px] border-transparent'">
+                            <svg class="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M12 1.586l-4 4v12.828l4-4V1.586zM3.707 3.293A1 1 0 002 4v10a1 1 0 00.293.707L6 18.414V5.586L3.707 3.293zM14 5.586v12.828l3.707-3.707A1 1 0 0018 14V4a1 1 0 00-.293-.707L14 5.586z" clip-rule="evenodd"/></svg>
+                            <span>Mapa Geoespacial</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- GRUPO 2: ANÁLISE OPERACIONAL -->
+                <div>
+                    <h3 class="px-3 text-[11px] font-bold uppercase tracking-wider text-[#94A3B8] mb-1.5">
+                        Análise Operacional
+                    </h3>
+                    <div class="space-y-0.5">
+                        <button type="button"
+                                @click="switchTab('rodovias')"
+                                class="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold transition-all text-left"
+                                :class="activeTab === 'rodovias' ? 'bg-[#EFF6FF] dark:bg-blue-950/50 text-[#2563EB] dark:text-blue-400 border-l-[3px] border-[#2563EB]' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-slate-800/60 border-l-[3px] border-transparent'">
+                            <svg class="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clip-rule="evenodd"/></svg>
+                            <span>Rodovias & Trechos (BRs)</span>
+                        </button>
+
+                        <button type="button"
+                                @click="switchTab('causas')"
+                                class="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold transition-all text-left"
+                                :class="activeTab === 'causas' ? 'bg-[#EFF6FF] dark:bg-blue-950/50 text-[#2563EB] dark:text-blue-400 border-l-[3px] border-[#2563EB]' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-slate-800/60 border-l-[3px] border-transparent'">
+                            <svg class="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
+                            <span>Causas & Fator Humano</span>
+                        </button>
+
+                        <button type="button"
+                                @click="switchTab('temporal')"
+                                class="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold transition-all text-left"
+                                :class="activeTab === 'temporal' ? 'bg-[#EFF6FF] dark:bg-blue-950/50 text-[#2563EB] dark:text-blue-400 border-l-[3px] border-[#2563EB]' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-slate-800/60 border-l-[3px] border-transparent'">
+                            <svg class="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"/></svg>
+                            <span>Perfil Temporal & Clima</span>
+                        </button>
+                    </div>
+                </div>
+            </nav>
+        </div>
+
+        <!-- Rodapé da Sidebar: Status da Base e GitHub Pages Badge -->
+        <div class="p-4 border-t border-[#E5E7EB] dark:border-slate-800">
+            <div class="p-3 bg-[#F8F9FB] dark:bg-slate-800/50 rounded-xl border border-slate-200/60 dark:border-slate-700/60">
+                <div class="flex items-center justify-between text-xs font-bold text-slate-800 dark:text-slate-200 mb-1">
+                    <span>Base 2026 Auditada</span>
+                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                </div>
+                <div class="text-[11px] text-slate-500 dark:text-slate-400">
+                    54.895 sinistros oficiais da PRF
+                </div>
+            </div>
+        </div>
+
+    </aside>
+
+    <!-- Overlay Mobile para fechar Sidebar -->
+    <div x-show="sidebarOpen" 
+         @click="sidebarOpen = false" 
+         class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-30 md:hidden"
+         style="display: none;"></div>
+
+    <!-- ===================================================================== -->
+    <!-- 2. ÁREA PRINCIPAL: TOPBAR + CONTEÚDO                                  -->
+    <!-- ===================================================================== -->
+    <div class="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
+        
+        <!-- TOPBAR SUPERIOR (68px) -->
+        <header class="h-[68px] bg-white dark:bg-[#111827] border-b border-[#E5E7EB] dark:border-slate-800 px-4 sm:px-6 flex items-center justify-between shrink-0 z-20">
+            
+            <!-- Lado Esquerdo: Mobile Toggle + Busca ⌘K -->
+            <div class="flex items-center gap-3 flex-1 max-w-md">
+                <button type="button" class="md:hidden text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white p-1" @click="sidebarOpen = true">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+                </button>
+
+                <div class="relative w-full">
+                    <button type="button" 
+                            @click="searchOpen = true"
+                            class="w-full h-10 pl-9 pr-12 text-left bg-[#F8F9FB] dark:bg-[#1E293B]/70 hover:bg-slate-100 dark:hover:bg-slate-800 border border-[#E5E7EB] dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 rounded-xl text-xs text-slate-500 dark:text-slate-400 font-medium flex items-center justify-between transition-colors">
+                        <span class="flex items-center gap-2">
+                            <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                            <span>Buscar município, rodovia ou estado...</span>
+                        </span>
+                        <kbd class="hidden sm:inline-flex items-center px-1.5 py-0.5 text-[10px] font-semibold text-slate-400 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded shadow-xs">⌘K</kbd>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Lado Direito: Pílula Ativa, Dark Mode, Filtros e Exportar -->
+            <div class="flex items-center gap-2 sm:gap-3">
+                <!-- Pílula de Filtro Ativo de UF -->
+                <div class="hidden sm:flex items-center gap-1.5" x-show="selectedUf">
+                    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 text-xs font-semibold">
+                        <span x-text="'UF: ' + selectedUf"></span>
+                        <button type="button" @click="selectUf('')" class="hover:text-blue-900 dark:hover:text-blue-100 font-bold ml-0.5">×</button>
+                    </span>
+                </div>
+
+                <!-- Botão Alternador Modo Escuro -->
+                <button type="button" 
+                        @click="toggleTheme()" 
+                        class="h-10 w-10 rounded-xl bg-white dark:bg-[#1E293B] hover:bg-slate-50 dark:hover:bg-slate-800 border border-[#E5E7EB] dark:border-slate-700 text-slate-600 dark:text-slate-300 shadow-xs transition-colors flex items-center justify-center shrink-0 active:scale-95" 
+                        title="Alternar Modo Escuro / Claro">
+                    <svg x-show="isDark" class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+                    <svg x-show="!isDark" class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
+                </button>
+
+                <!-- Botão Filtros por Estado -->
+                <button type="button" 
+                        @click="drawerOpen = true"
+                        class="h-10 px-3.5 rounded-xl bg-white dark:bg-[#1E293B] hover:bg-slate-50 dark:hover:bg-slate-800 border border-[#E5E7EB] dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 text-slate-700 dark:text-slate-200 font-semibold text-xs shadow-xs transition-colors flex items-center gap-2">
+                    <svg class="w-4 h-4 text-slate-500 dark:text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/></svg>
+                    <span>Filtros</span>
+                    <span x-show="selectedUf" class="w-2 h-2 rounded-full bg-blue-600"></span>
+                </button>
+
+                <!-- Botão Exportar Relatório CSV (Client-side instantâneo) -->
+                <button type="button"
+                        @click="exportarCSV()"
+                        class="h-10 px-4 rounded-xl bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold text-xs shadow-sm shadow-blue-500/20 transition-all flex items-center gap-2 active:scale-95"
+                        title="Baixar planilha CSV das rodovias do recorte ativo">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                    <span class="hidden sm:inline">Exportar Relatório</span>
+                    <span class="sm:hidden">CSV</span>
+                </button>
+            </div>
+
+        </header>
+
+        <!-- ÁREA PRINCIPAL COM SCROLL -->
+        <main class="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-6">
+            <div class="max-w-[1400px] mx-auto space-y-6">
+
+                <!-- Loader Inicial enquanto carrega o JSON -->
+                <div x-show="loading" class="py-24 flex flex-col items-center justify-center gap-3 text-slate-400 text-sm">
+                    <svg class="animate-spin h-8 w-8 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                    <span>Carregando dados consolidados da PRF 2026...</span>
+                </div>
+
+                <div x-show="!loading" style="display: none;">
+
+                    <!-- ========================================================= -->
+                    <!-- TAB 1: DASHBOARD PRINCIPAL (VISÃO GERAL)                  -->
+                    <!-- ========================================================= -->
+                    <div x-show="activeTab === 'visao_geral'" class="space-y-6">
+                        
+                        <!-- Cabeçalho -->
+                        <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-2">
+                            <div>
+                                <div class="flex items-center gap-2 mb-1">
+                                    <span class="text-[11px] font-bold uppercase tracking-wider text-blue-700 bg-blue-50 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-200 dark:border-blue-800 px-2.5 py-0.5 rounded-full">
+                                        Observatório Rodoviário 2026
+                                    </span>
+                                    <span class="text-slate-300">•</span>
+                                    <span class="text-xs text-slate-500 font-medium" x-text="activeData.uf_nome"></span>
+                                </div>
+                                <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+                                    Panorama Nacional de Sinistros
+                                </h1>
+                                <p class="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+                                    Monitoramento em tempo real de sinistros, fatalidades e criticidade da malha viária federal.
+                                </p>
+                            </div>
+                            <div class="flex items-center gap-2" x-show="selectedUf">
+                                <button type="button" @click="selectUf('')" class="text-xs font-bold text-rose-600 hover:text-rose-700 underline">
+                                    Limpar Filtro de Estado
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- 4 KPIs Mestres -->
+                        <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                            <div class="bento-card p-5 flex flex-col justify-between">
+                                <div class="flex items-center justify-between mb-2">
+                                    <span class="text-[11px] font-bold uppercase tracking-wider text-[#64748B]">Total de Sinistros</span>
+                                    <div class="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold">∑</div>
+                                </div>
+                                <div class="text-[28px] font-black tabular-nums tracking-tight text-[#0F172A] dark:text-white" x-text="activeData.kpis ? activeData.kpis.sinistros_fmt : '0'"></div>
+                                <div class="mt-3 pt-2.5 border-t border-[#F1F5F9] dark:border-slate-800 text-xs flex justify-between">
+                                    <span class="text-slate-400">Auditoria</span>
+                                    <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">100% Auditado</span>
+                                </div>
+                            </div>
+
+                            <div class="bento-card p-5 flex flex-col justify-between">
+                                <div class="flex items-center justify-between mb-2">
+                                    <span class="text-[11px] font-bold uppercase tracking-wider text-[#64748B]">Total de Óbitos</span>
+                                    <div class="w-8 h-8 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center font-bold">†</div>
+                                </div>
+                                <div class="text-[28px] font-black tabular-nums tracking-tight text-rose-600 dark:text-rose-400" x-text="activeData.kpis ? activeData.kpis.obitos_fmt : '0'"></div>
+                                <div class="mt-3 pt-2.5 border-t border-[#F1F5F9] dark:border-slate-800 text-xs flex justify-between">
+                                    <span class="text-slate-400">Vítimas fatais</span>
+                                    <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-100 text-rose-800">Prioridade Zero</span>
+                                </div>
+                            </div>
+
+                            <div class="bento-card p-5 flex flex-col justify-between">
+                                <div class="flex items-center justify-between mb-2">
+                                    <span class="text-[11px] font-bold uppercase tracking-wider text-[#64748B]">Feridos Graves</span>
+                                    <div class="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold">🚑</div>
+                                </div>
+                                <div class="text-[28px] font-black tabular-nums tracking-tight text-amber-600 dark:text-amber-400" x-text="activeData.kpis ? activeData.kpis.feridos_graves_fmt : '0'"></div>
+                                <div class="mt-3 pt-2.5 border-t border-[#F1F5F9] dark:border-slate-800 text-xs flex justify-between">
+                                    <span class="text-slate-400">Internações</span>
+                                    <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">Alta Gravidade</span>
+                                </div>
+                            </div>
+
+                            <div class="bento-card p-5 flex flex-col justify-between">
+                                <div class="flex items-center justify-between mb-2">
+                                    <span class="text-[11px] font-bold uppercase tracking-wider text-[#64748B]">Índice de Letalidade</span>
+                                    <div class="w-8 h-8 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center font-bold">%</div>
+                                </div>
+                                <div class="text-[28px] font-black tabular-nums tracking-tight text-purple-600 dark:text-purple-400" x-text="activeData.kpis ? activeData.kpis.letalidade_fmt : '0,0%'"></div>
+                                <div class="mt-3 pt-2.5 border-t border-[#F1F5F9] dark:border-slate-800 text-xs flex justify-between">
+                                    <span class="text-slate-400">Óbitos / Sinistro</span>
+                                    <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-100 text-purple-800">Taxa Crítica</span>
+                                </div>
+                            </div>
+                        </section>
+
+                        <!-- Card de Insights Inteligentes (Pandas) -->
+                        <template x-if="activeData.insights && activeData.insights.geral">
+                            <section class="bento-card p-5 border-l-4 border-l-blue-600 dark:border-l-blue-500">
+                                <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-3.5 mb-4 border-b border-[#F1F5F9] dark:border-slate-800 gap-2">
+                                    <div class="flex items-center gap-2.5">
+                                        <div class="w-8 h-8 rounded-xl bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0 font-bold">⚡</div>
+                                        <div>
+                                            <h2 class="text-sm font-black tracking-tight text-slate-900 dark:text-white">Diagnóstico Operacional Inteligente</h2>
+                                            <p class="text-[11px] text-slate-500 dark:text-slate-400">Padrões críticos detectados dinamicamente via análise estatística do recorte ativo</p>
+                                        </div>
+                                    </div>
+                                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                                        <span class="w-1.5 h-1.5 rounded-full bg-blue-600 dark:bg-blue-400 animate-pulse"></span>
+                                        Diagnóstico Automático • Pandas
+                                    </span>
+                                </div>
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <template x-for="item in activeData.insights.geral.itens" :key="item.titulo">
+                                        <div class="p-4 rounded-xl bg-slate-50/70 dark:bg-[#1E293B]/50 border border-slate-200/60 dark:border-slate-800/80 hover:border-blue-300 dark:hover:border-blue-700 transition-colors flex flex-col justify-between">
+                                            <div>
+                                                <div class="flex items-center justify-between gap-2 mb-2">
+                                                    <span class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400" x-text="item.titulo"></span>
+                                                    <span class="px-2 py-0.5 rounded-md text-[10px] font-bold" :class="item.badge_cor" x-text="item.badge"></span>
+                                                </div>
+                                                <div class="text-xs font-semibold text-slate-800 dark:text-slate-200 leading-relaxed mb-2" x-text="item.destaque"></div>
+                                                <p class="text-xs text-slate-600 dark:text-slate-400 leading-normal" x-html="item.descricao"></p>
+                                            </div>
+                                        </div>
+                                    </template>
+                                </div>
+                            </section>
+                        </template>
+
+                        <!-- Bento Grid: Evolução Mensal + Dias da Semana & Gauge -->
+                        <section class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+                            <!-- Bloco Esquerdo (8 colunas) -->
+                            <div class="lg:col-span-8 bento-card p-6 flex flex-col justify-between min-h-[460px]">
+                                <div>
+                                    <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-[#F1F5F9] dark:border-slate-800 gap-2">
+                                        <div>
+                                            <h2 class="text-sm font-bold text-slate-900 dark:text-white">Evolução Mensal de Sinistros e Óbitos</h2>
+                                            <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Sazonalidade das ocorrências ao longo dos meses auditados</p>
+                                        </div>
+                                        <div class="flex items-center gap-3 text-xs">
+                                            <span class="inline-flex items-center gap-1.5 font-semibold text-slate-700 dark:text-slate-300"><span class="w-2.5 h-2.5 rounded-full bg-blue-600"></span> Sinistros</span>
+                                            <span class="inline-flex items-center gap-1.5 font-semibold text-slate-700 dark:text-slate-300"><span class="w-2.5 h-0.5 bg-rose-500"></span> Óbitos</span>
+                                        </div>
+                                    </div>
+                                    <div class="w-full mt-2" id="chart-evolucao" style="width: 100%; height: 260px; min-height: 260px;"></div>
+                                </div>
+
+                                <!-- 3 Sub-blocos na base -->
+                                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-4 border-t border-[#F1F5F9] dark:border-slate-800 mt-2">
+                                    <template x-for="b in (activeData.sub_blocos || [])" :key="b.titulo">
+                                        <div class="p-3 rounded-xl bg-[#F8F9FB] dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-700/60 flex flex-col justify-between">
+                                            <div class="text-[11px] text-slate-500 dark:text-slate-400 flex items-center justify-between">
+                                                <span x-text="b.titulo"></span>
+                                                <span class="font-bold text-slate-700 dark:text-slate-300" x-text="b.pct"></span>
+                                            </div>
+                                            <div class="text-base font-black text-slate-900 dark:text-white mt-1 tabular-nums" x-text="b.total"></div>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+
+                            <!-- Bloco Direito (4 colunas): Dias da Semana + Gauge -->
+                            <div class="lg:col-span-4 space-y-5">
+                                <div class="bento-card p-6 flex flex-col justify-between min-h-[220px]">
+                                    <div class="flex items-center justify-between pb-3 border-b border-[#F1F5F9] dark:border-slate-800">
+                                        <div>
+                                            <h2 class="text-sm font-bold text-slate-900 dark:text-white">Incidência por Dia</h2>
+                                            <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Distribuição do fluxo semanal</p>
+                                        </div>
+                                        <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300" x-text="'Pico: ' + (activeData.dias_semana ? activeData.dias_semana.pico_dia_nome : 'Fins de semana')"></span>
+                                    </div>
+                                    <div class="w-full mt-2" id="chart-dias" style="width: 100%; height: 180px; min-height: 180px;"></div>
+                                </div>
+
+                                <div class="bento-card p-6 flex flex-col justify-between">
+                                    <div class="flex items-center justify-between pb-3 border-b border-[#F1F5F9] dark:border-slate-800">
+                                        <div>
+                                            <h2 class="text-sm font-bold text-slate-900 dark:text-white">Índice de Letalidade</h2>
+                                            <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Medidor semicircular de severidade</p>
+                                        </div>
+                                        <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                                            Gauge 180°
+                                        </span>
+                                    </div>
+
+                                    <!-- Medidor Semicircular (Gauge 30 Segmentos Radiais SVG) -->
+                                    <div class="relative py-2 flex flex-col items-center justify-center">
+                                        <svg viewBox="0 0 240 135" class="w-full max-w-[220px]">
+                                            <defs>
+                                                <linearGradient id="gaugeGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                                                    <stop offset="0%" stop-color="#10B981" />
+                                                    <stop offset="50%" stop-color="#3B82F6" />
+                                                    <stop offset="100%" stop-color="#2563EB" />
+                                                </linearGradient>
+                                            </defs>
+                                            <g id="gauge-ticks"></g>
+                                        </svg>
+
+                                        <!-- Percentual Grande Centralizado -->
+                                        <div class="text-center -mt-7">
+                                            <div class="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tabular-nums tracking-tight"
+                                                 x-text="activeData.kpis ? activeData.kpis.letalidade_fmt : '0,0%'">
+                                            </div>
+                                            <p class="text-[10px] font-medium text-slate-500 dark:text-slate-400">Taxa de Letalidade Geral</p>
+                                        </div>
+                                    </div>
+
+                                    <!-- Estatística de Pista Simples -->
+                                    <div class="p-3 rounded-xl bg-[#F8F9FB] dark:bg-[#1E293B]/60 border border-[#E5E7EB]/80 dark:border-slate-800 mt-2">
+                                        <div class="flex items-center justify-between text-xs font-semibold mb-1">
+                                            <span class="text-slate-700 dark:text-slate-300">Óbitos em Pista Simples</span>
+                                            <span class="font-bold text-rose-600 dark:text-rose-400 tabular-nums"
+                                                  x-text="activeData.gauge ? (activeData.gauge.pista_simples_pct + '%') : '0%'">
+                                            </span>
+                                        </div>
+                                        <div class="w-full h-1.5 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
+                                            <div class="h-full rounded-full bg-rose-500"
+                                                 :style="'width: ' + (activeData.gauge ? activeData.gauge.pista_simples_pct : 0) + '%;'">
+                                            </div>
+                                        </div>
+                                        <p class="text-[10px] text-slate-500 dark:text-slate-400 mt-1.5"
+                                           x-text="(activeData.gauge ? activeData.gauge.mortos_simples_fmt : '0') + ' das fatalidades ocorreram em pistas simples.'">
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
+
+                        <!-- Tabela Top 8 Rodovias -->
+                        <section class="bento-card p-6">
+                            <div class="flex items-center justify-between pb-4 border-b border-[#F1F5F9] dark:border-slate-800">
+                                <div>
+                                    <h2 class="text-sm font-bold text-slate-900 dark:text-white">Top Rodovias Mais Críticas</h2>
+                                    <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Principais corredores federais em volume de sinistros</p>
+                                </div>
+                                <button type="button" @click="switchTab('rodovias')" class="text-xs font-bold text-blue-600 hover:text-blue-700">Ver todas →</button>
+                            </div>
+                            <div class="overflow-x-auto mt-3">
+                                <table class="w-full text-xs text-left">
+                                    <thead class="text-slate-400 uppercase text-[10px] border-b border-[#F1F5F9] dark:border-slate-800">
+                                        <tr>
+                                            <th class="py-2.5 px-3">#</th>
+                                            <th class="py-2.5 px-3">Rodovia</th>
+                                            <th class="py-2.5 px-3">Sinistros</th>
+                                            <th class="py-2.5 px-3">Óbitos</th>
+                                            <th class="py-2.5 px-3">Letalidade</th>
+                                            <th class="py-2.5 px-3">Trecho Crítico</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-[#F1F5F9] dark:divide-slate-800 font-medium">
+                                        <template x-for="r in (activeData.tabela_rodovias || []).slice(0, 8)" :key="r.br_codigo">
+                                            <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                                                <td class="py-2.5 px-3 font-bold text-slate-400" x-text="r.posicao"></td>
+                                                <td class="py-2.5 px-3 font-bold text-blue-600 dark:text-blue-400" x-text="r.br_formatada"></td>
+                                                <td class="py-2.5 px-3 tabular-nums text-slate-800 dark:text-slate-200" x-text="r.sinistros_fmt"></td>
+                                                <td class="py-2.5 px-3 tabular-nums text-rose-600 dark:text-rose-400 font-bold" x-text="r.mortos_fmt"></td>
+                                                <td class="py-2.5 px-3 tabular-nums font-semibold" x-text="r.letalidade_fmt"></td>
+                                                <td class="py-2.5 px-3 text-slate-500 dark:text-slate-400" x-text="r.municipio"></td>
+                                            </tr>
+                                        </template>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </section>
+
+                    </div>
+
+                    <!-- ========================================================= -->
+                    <!-- TAB 2: MAPA GEOESPACIAL DEDICADO                          -->
+                    <!-- ========================================================= -->
+                    <div x-show="activeTab === 'mapa'" class="space-y-6">
+                        <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-2">
+                            <div>
+                                <div class="flex items-center gap-2 mb-1">
+                                    <span class="text-[11px] font-bold uppercase tracking-wider text-blue-700 bg-blue-50 border border-blue-200 px-2.5 py-0.5 rounded-full">
+                                        Módulo Geoespacial
+                                    </span>
+                                </div>
+                                <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+                                    Distribuição Geográfica de Sinistros
+                                </h1>
+                                <p class="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+                                    Densidade geoespacial das ocorrências. Clique em qualquer estado no mapa ou na lista para filtrar todo o painel.
+                                </p>
+                            </div>
+                        </div>
+
+                        <section class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+                            <!-- Mapa ECharts 8 colunas -->
+                            <div class="lg:col-span-8 bento-card p-6 flex flex-col justify-between min-h-[620px]">
+                                <div>
+                                    <div class="flex items-center justify-between pb-4 border-b border-[#F1F5F9] dark:border-slate-800">
+                                        <div>
+                                            <h2 class="text-sm font-bold text-slate-900 dark:text-white">Malha Rodoviária Federativa do Brasil</h2>
+                                            <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Vetorização dos 27 estados com coloração contínua por densidade</p>
+                                        </div>
+                                        <span class="text-xs px-2.5 py-1 rounded-full bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 font-semibold border border-blue-200 dark:border-blue-800">
+                                            Clique na UF para Filtrar
+                                        </span>
+                                    </div>
+                                    <div class="w-full mt-2" id="chart-mapa-brasil" style="width: 100%; height: 540px; min-height: 540px;"></div>
+                                </div>
+                                <div class="pt-3 border-t border-[#F1F5F9] dark:border-slate-800 text-[11px] text-slate-400 flex justify-between">
+                                    <span>Fonte: Polícia Rodoviária Federal • Malha Oficial IBGE</span>
+                                    <span class="text-blue-600 font-semibold">Interatividade Vetorial</span>
+                                </div>
+                            </div>
+
+                            <!-- Ranking Lateral 4 colunas -->
+                            <div class="lg:col-span-4 bento-card p-6 flex flex-col justify-between">
+                                <div>
+                                    <div class="flex items-center justify-between pb-3 border-b border-[#F1F5F9] dark:border-slate-800">
+                                        <div>
+                                            <h2 class="text-sm font-bold text-slate-900 dark:text-white">Ranking por Estado (UF)</h2>
+                                            <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Top estados em volume de ocorrências</p>
+                                        </div>
+                                        <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">27 UFs</span>
+                                    </div>
+                                    <div class="max-h-[500px] overflow-y-auto space-y-1.5 mt-3 pr-1">
+                                        <template x-for="row in (nacionalData.ranking_ufs || [])" :key="row.sigla">
+                                            <button type="button" 
+                                                    @click="selectUf(row.sigla)"
+                                                    class="w-full flex items-center justify-between p-2.5 rounded-xl border transition-all text-left group"
+                                                    :class="selectedUf === row.sigla ? 'bg-blue-50 dark:bg-blue-950/60 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300' : 'bg-[#F8F9FB] dark:bg-slate-800/40 border-transparent hover:border-slate-200 dark:hover:border-slate-700 hover:bg-white dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200'">
+                                                <div class="flex items-center gap-3">
+                                                    <span class="w-6 h-6 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center text-xs font-bold text-slate-500 dark:text-slate-400" x-text="row.posicao"></span>
+                                                    <div>
+                                                        <div class="font-bold text-xs">
+                                                            <span x-text="row.sigla"></span> <span class="font-normal text-slate-500 dark:text-slate-400 text-[11px]" x-text="'• ' + row.nome"></span>
+                                                        </div>
+                                                        <div class="text-[10px] text-slate-400">Letalidade: <span class="font-semibold" x-text="row.letalidade_fmt"></span></div>
+                                                    </div>
+                                                </div>
+                                                <div class="text-right">
+                                                    <div class="font-bold text-xs text-slate-900 dark:text-white tabular-nums" x-text="row.sinistros_fmt"></div>
+                                                    <div class="text-[10px] text-rose-600 dark:text-rose-400 font-semibold tabular-nums" x-text="row.mortos + ' mortos'"></div>
+                                                </div>
+                                            </button>
+                                        </template>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
+                    </div>
+
+                    <!-- ========================================================= -->
+                    <!-- TAB 3: RODOVIAS & TRECHOS CRÍTICOS                        -->
+                    <!-- ========================================================= -->
+                    <div x-show="activeTab === 'rodovias'" class="space-y-6">
+                        <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-2">
+                            <div>
+                                <div class="flex items-center gap-2 mb-1">
+                                    <span class="text-[11px] font-bold uppercase tracking-wider text-blue-700 bg-blue-50 border border-blue-200 px-2.5 py-0.5 rounded-full">
+                                        Módulo Operacional
+                                    </span>
+                                </div>
+                                <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+                                    Rodovias & Trechos Críticos (BRs)
+                                </h1>
+                                <p class="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+                                    Diagnóstico de criticidade viária, comparação por tipologia de pista e ranking completo das rodovias federais.
+                                </p>
+                            </div>
+                        </div>
+
+                        <!-- Card Insights Rodovias -->
+                        <template x-if="activeData.insights && activeData.insights.rodovias">
+                            <section class="bento-card p-5 border-l-4 border-l-blue-600 dark:border-l-blue-500">
+                                <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-3.5 mb-4 border-b border-[#F1F5F9] dark:border-slate-800 gap-2">
+                                    <h2 class="text-sm font-black tracking-tight text-slate-900 dark:text-white">Diagnóstico de Infraestrutura Viária</h2>
+                                    <span class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">Pandas Analytics</span>
+                                </div>
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <template x-for="item in activeData.insights.rodovias.itens" :key="item.titulo">
+                                        <div class="p-4 rounded-xl bg-slate-50/70 dark:bg-[#1E293B]/50 border border-slate-200/60 dark:border-slate-800/80 flex flex-col justify-between">
+                                            <div>
+                                                <div class="flex items-center justify-between gap-2 mb-2">
+                                                    <span class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400" x-text="item.titulo"></span>
+                                                    <span class="px-2 py-0.5 rounded-md text-[10px] font-bold" :class="item.badge_cor" x-text="item.badge"></span>
+                                                </div>
+                                                <div class="text-xs font-semibold text-slate-800 dark:text-slate-200 leading-relaxed mb-2" x-text="item.destaque"></div>
+                                                <p class="text-xs text-slate-600 dark:text-slate-400 leading-normal" x-html="item.descricao"></p>
+                                            </div>
+                                        </div>
+                                    </template>
+                                </div>
+                            </section>
+                        </template>
+
+                        <!-- Gráfico Pista -->
+                        <section class="bento-card p-6">
+                            <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-[#F1F5F9] dark:border-slate-800 gap-3">
+                                <div>
+                                    <h2 class="text-sm font-bold text-slate-900 dark:text-white">Severidade por Tipo de Pista</h2>
+                                    <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Impacto do traçado viário na frequência de ocorrências e na letalidade</p>
+                                </div>
+                            </div>
+                            <div class="w-full mt-2" id="chart-pista" style="width: 100%; height: 340px; min-height: 340px;"></div>
+                        </section>
+
+                        <!-- Tabela Completa de Rodovias com Busca -->
+                        <section class="bento-card p-6" x-data="{ tableSearch: '' }">
+                            <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-[#F1F5F9] dark:border-slate-800 gap-3">
+                                <div>
+                                    <h2 class="text-sm font-bold text-slate-900 dark:text-white">Ranking Completo de Rodovias Federais</h2>
+                                    <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Ordenado pelo volume de ocorrências</p>
+                                </div>
+                                <div class="relative w-full sm:w-64">
+                                    <input type="text" x-model="tableSearch" placeholder="Filtrar por BR ou município..." class="w-full bg-[#F8F9FB] dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-1.5 text-xs text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-blue-500">
+                                </div>
+                            </div>
+                            <div class="overflow-x-auto mt-3">
+                                <table class="w-full text-xs text-left">
+                                    <thead class="text-slate-400 uppercase text-[10px] border-b border-[#F1F5F9] dark:border-slate-800">
+                                        <tr>
+                                            <th class="py-2.5 px-3">#</th>
+                                            <th class="py-2.5 px-3">Rodovia</th>
+                                            <th class="py-2.5 px-3">Sinistros</th>
+                                            <th class="py-2.5 px-3">Óbitos</th>
+                                            <th class="py-2.5 px-3">Feridos Graves</th>
+                                            <th class="py-2.5 px-3">Letalidade</th>
+                                            <th class="py-2.5 px-3">Município Crítico</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-[#F1F5F9] dark:divide-slate-800 font-medium">
+                                        <template x-for="r in (activeData.tabela_rodovias || []).filter(item => !tableSearch || item.br_formatada.toLowerCase().includes(tableSearch.toLowerCase()) || item.municipio.toLowerCase().includes(tableSearch.toLowerCase()))" :key="r.br_codigo">
+                                            <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                                                <td class="py-2.5 px-3 font-bold text-slate-400" x-text="r.posicao"></td>
+                                                <td class="py-2.5 px-3 font-bold text-blue-600 dark:text-blue-400" x-text="r.br_formatada"></td>
+                                                <td class="py-2.5 px-3 tabular-nums font-semibold" x-text="r.sinistros_fmt"></td>
+                                                <td class="py-2.5 px-3 tabular-nums text-rose-600 dark:text-rose-400 font-bold" x-text="r.mortos_fmt"></td>
+                                                <td class="py-2.5 px-3 tabular-nums text-amber-600 dark:text-amber-400" x-text="r.feridos_graves_fmt"></td>
+                                                <td class="py-2.5 px-3 tabular-nums" x-text="r.letalidade_fmt"></td>
+                                                <td class="py-2.5 px-3 text-slate-500 dark:text-slate-400" x-text="r.municipio"></td>
+                                            </tr>
+                                        </template>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </section>
+                    </div>
+
+                    <!-- ========================================================= -->
+                    <!-- TAB 4: CAUSAS & FATOR HUMANO                              -->
+                    <!-- ========================================================= -->
+                    <div x-show="activeTab === 'causas'" class="space-y-6">
+                        <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-2">
+                            <div>
+                                <div class="flex items-center gap-2 mb-1">
+                                    <span class="text-[11px] font-bold uppercase tracking-wider text-blue-700 bg-blue-50 border border-blue-200 px-2.5 py-0.5 rounded-full">
+                                        Módulo Operacional
+                                    </span>
+                                </div>
+                                <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+                                    Causas Determinantes & Fator Humano
+                                </h1>
+                                <p class="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+                                    Diagnóstico comportamental e cinemático das ocorrências: imperícia, desatenção, velocidade e dinâmica dos impactos.
+                                </p>
+                            </div>
+                        </div>
+
+                        <!-- Card Insights Causas -->
+                        <template x-if="activeData.insights && activeData.insights.causas">
+                            <section class="bento-card p-5 border-l-4 border-l-blue-600 dark:border-l-blue-500">
+                                <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-3.5 mb-4 border-b border-[#F1F5F9] dark:border-slate-800 gap-2">
+                                    <h2 class="text-sm font-black tracking-tight text-slate-900 dark:text-white">Diagnóstico Comportamental & Cinemático</h2>
+                                    <span class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">Pandas Analytics</span>
+                                </div>
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <template x-for="item in activeData.insights.causas.itens" :key="item.titulo">
+                                        <div class="p-4 rounded-xl bg-slate-50/70 dark:bg-[#1E293B]/50 border border-slate-200/60 dark:border-slate-800/80 flex flex-col justify-between">
+                                            <div>
+                                                <div class="flex items-center justify-between gap-2 mb-2">
+                                                    <span class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400" x-text="item.titulo"></span>
+                                                    <span class="px-2 py-0.5 rounded-md text-[10px] font-bold" :class="item.badge_cor" x-text="item.badge"></span>
+                                                </div>
+                                                <div class="text-xs font-semibold text-slate-800 dark:text-slate-200 leading-relaxed mb-2" x-text="item.destaque"></div>
+                                                <p class="text-xs text-slate-600 dark:text-slate-400 leading-normal" x-html="item.descricao"></p>
+                                            </div>
+                                        </div>
+                                    </template>
+                                </div>
+                            </section>
+                        </template>
+
+                        <!-- Gráficos Causas e Tipos Lado a Lado -->
+                        <section class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                            <div class="bento-card p-6 flex flex-col justify-between">
+                                <div class="pb-3 border-b border-[#F1F5F9] dark:border-slate-800">
+                                    <h2 class="text-sm font-bold text-slate-900 dark:text-white">Causas Mais Recorrentes</h2>
+                                    <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Top falhas identificadas no laudo pericial</p>
+                                </div>
+                                <div class="w-full mt-2" id="chart-causas" style="width: 100%; height: 340px; min-height: 340px;"></div>
+                            </div>
+
+                            <div class="bento-card p-6 flex flex-col justify-between">
+                                <div class="pb-3 border-b border-[#F1F5F9] dark:border-slate-800">
+                                    <h2 class="text-sm font-bold text-slate-900 dark:text-white">Tipos de Acidente (Cinemática)</h2>
+                                    <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Dinâmica de impacto entre veículos e obstáculos</p>
+                                </div>
+                                <div class="w-full mt-2" id="chart-tipos" style="width: 100%; height: 340px; min-height: 340px;"></div>
+                            </div>
+                        </section>
+
+                        <!-- Tabela Detalhada de Causas -->
+                        <section class="bento-card p-6">
+                            <div class="pb-4 border-b border-[#F1F5F9] dark:border-slate-800">
+                                <h2 class="text-sm font-bold text-slate-900 dark:text-white">Causas Determinantes vs. Risco de Letalidade</h2>
+                                <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Severidade proporcional por fator causador</p>
+                            </div>
+                            <div class="overflow-x-auto mt-3">
+                                <table class="w-full text-xs text-left">
+                                    <thead class="text-slate-400 uppercase text-[10px] border-b border-[#F1F5F9] dark:border-slate-800">
+                                        <tr>
+                                            <th class="py-2.5 px-3">#</th>
+                                            <th class="py-2.5 px-3">Causa Pericial</th>
+                                            <th class="py-2.5 px-3">Sinistros</th>
+                                            <th class="py-2.5 px-3">Óbitos</th>
+                                            <th class="py-2.5 px-3">Letalidade</th>
+                                            <th class="py-2.5 px-3">Criticidade</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-[#F1F5F9] dark:divide-slate-800 font-medium">
+                                        <template x-for="c in (activeData.tabela_causas || [])" :key="c.causa">
+                                            <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                                                <td class="py-2.5 px-3 font-bold text-slate-400" x-text="c.posicao"></td>
+                                                <td class="py-2.5 px-3 font-semibold text-slate-800 dark:text-slate-200" x-text="c.causa"></td>
+                                                <td class="py-2.5 px-3 tabular-nums" x-text="c.sinistros_fmt"></td>
+                                                <td class="py-2.5 px-3 tabular-nums text-rose-600 dark:text-rose-400 font-bold" x-text="c.mortos_fmt"></td>
+                                                <td class="py-2.5 px-3 tabular-nums font-bold" x-text="c.letalidade_fmt"></td>
+                                                <td class="py-2.5 px-3"><span class="px-2 py-0.5 rounded-full text-[10px] font-bold" :class="c.badge_class" x-text="c.badge_texto"></span></td>
+                                            </tr>
+                                        </template>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </section>
+                    </div>
+
+                    <!-- ========================================================= -->
+                    <!-- TAB 5: PERFIL TEMPORAL & CLIMA                            -->
+                    <!-- ========================================================= -->
+                    <div x-show="activeTab === 'temporal'" class="space-y-6">
+                        <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-2">
+                            <div>
+                                <div class="flex items-center gap-2 mb-1">
+                                    <span class="text-[11px] font-bold uppercase tracking-wider text-blue-700 bg-blue-50 border border-blue-200 px-2.5 py-0.5 rounded-full">
+                                        Módulo Operacional
+                                    </span>
+                                </div>
+                                <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+                                    Perfil Temporal & Condições Climáticas
+                                </h1>
+                                <p class="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+                                    Sazonalidade das ocorrências ao longo dos meses, dias da semana, período do dia e influência meteorológica.
+                                </p>
+                            </div>
+                        </div>
+
+                        <!-- Card Insights Temporal -->
+                        <template x-if="activeData.insights && activeData.insights.temporal">
+                            <section class="bento-card p-5 border-l-4 border-l-blue-600 dark:border-l-blue-500">
+                                <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-3.5 mb-4 border-b border-[#F1F5F9] dark:border-slate-800 gap-2">
+                                    <h2 class="text-sm font-black tracking-tight text-slate-900 dark:text-white">Diagnóstico Temporal & Meteorológico</h2>
+                                    <span class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">Pandas Analytics</span>
+                                </div>
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <template x-for="item in activeData.insights.temporal.itens" :key="item.titulo">
+                                        <div class="p-4 rounded-xl bg-slate-50/70 dark:bg-[#1E293B]/50 border border-slate-200/60 dark:border-slate-800/80 flex flex-col justify-between">
+                                            <div>
+                                                <div class="flex items-center justify-between gap-2 mb-2">
+                                                    <span class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400" x-text="item.titulo"></span>
+                                                    <span class="px-2 py-0.5 rounded-md text-[10px] font-bold" :class="item.badge_cor" x-text="item.badge"></span>
+                                                </div>
+                                                <div class="text-xs font-semibold text-slate-800 dark:text-slate-200 leading-relaxed mb-2" x-text="item.destaque"></div>
+                                                <p class="text-xs text-slate-600 dark:text-slate-400 leading-normal" x-html="item.descricao"></p>
+                                            </div>
+                                        </div>
+                                    </template>
+                                </div>
+                            </section>
+                        </template>
+
+                        <!-- Trajetória Mensal -->
+                        <section class="bento-card p-6">
+                            <div class="pb-4 border-b border-[#F1F5F9] dark:border-slate-800">
+                                <h2 class="text-sm font-bold text-slate-900 dark:text-white">Trajetória Mensal de Sinistros e Fatalidades</h2>
+                                <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Curva de ocorrências e vidas perdidas</p>
+                            </div>
+                            <div class="w-full mt-2" id="chart-mensal-temporal" style="width: 100%; height: 320px; min-height: 320px;"></div>
+                        </section>
+
+                        <!-- Grid Semanal + Fase do Dia -->
+                        <section class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                            <div class="bento-card p-6 flex flex-col justify-between">
+                                <div class="pb-3 border-b border-[#F1F5F9] dark:border-slate-800">
+                                    <h2 class="text-sm font-bold text-slate-900 dark:text-white">Ciclo Semanal</h2>
+                                    <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Dias úteis vs. Fins de semana</p>
+                                </div>
+                                <div class="w-full mt-2" id="chart-semana-temporal" style="width: 100%; height: 260px; min-height: 260px;"></div>
+                            </div>
+
+                            <div class="bento-card p-6 flex flex-col justify-between">
+                                <div class="pb-3 border-b border-[#F1F5F9] dark:border-slate-800">
+                                    <h2 class="text-sm font-bold text-slate-900 dark:text-white">Severidade por Fase do Dia</h2>
+                                    <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">O paradoxo da letalidade noturna</p>
+                                </div>
+                                <div class="w-full mt-2" id="chart-fase-temporal" style="width: 100%; height: 260px; min-height: 260px;"></div>
+                            </div>
+                        </section>
+
+                        <!-- Condições Climáticas Donut -->
+                        <section class="bento-card p-6">
+                            <div class="pb-4 border-b border-[#F1F5F9] dark:border-slate-800">
+                                <h2 class="text-sm font-bold text-slate-900 dark:text-white">Condições Meteorológicas</h2>
+                                <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Distribuição dos acidentes por estado do tempo</p>
+                            </div>
+                            <div class="w-full mt-2" id="chart-clima-donut" style="width: 100%; height: 280px; min-height: 280px;"></div>
+                        </section>
+                    </div>
+
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- 3. DRAWER DE FILTROS POR ESTADO / REGIÃO                              -->
+    <!-- ===================================================================== -->
+    <div x-show="drawerOpen" class="fixed inset-0 z-50 overflow-hidden" style="display: none;">
+        <div class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm" @click="drawerOpen = false"></div>
+        <div class="fixed inset-y-0 right-0 max-w-full flex pl-10">
+            <div class="w-screen max-w-md bg-white dark:bg-[#111827] shadow-2xl flex flex-col justify-between border-l border-[#E5E7EB] dark:border-slate-800">
+                <div class="p-6 border-b border-[#E5E7EB] dark:border-slate-800 flex items-center justify-between">
+                    <div>
+                        <h2 class="text-base font-bold text-slate-900 dark:text-white">Filtro por Estado (UF)</h2>
+                        <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Navegue pelas 5 regiões do Brasil</p>
+                    </div>
+                    <button type="button" @click="drawerOpen = false" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">✕</button>
+                </div>
+
+                <div class="p-6 overflow-y-auto space-y-5 flex-1">
+                    <button type="button" 
+                            @click="selectUf(''); drawerOpen = false"
+                            class="w-full p-3 rounded-xl border font-bold text-xs flex items-center justify-between transition"
+                            :class="!selectedUf ? 'bg-blue-600 text-white border-blue-600' : 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-white'">
+                        <span>Todo o Brasil (Geral)</span>
+                        <span x-show="!selectedUf">✓</span>
+                    </button>
+
+                    <template x-for="(ufs, regiao) in (nacionalData.regioes_brasil || {})" :key="regiao">
+                        <div>
+                            <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-2" x-text="regiao"></div>
+                            <div class="grid grid-cols-2 gap-2">
+                                <template x-for="[sigla, nome] in ufs" :key="sigla">
+                                    <button type="button"
+                                            @click="selectUf(sigla); drawerOpen = false"
+                                            class="p-2.5 rounded-xl border text-xs font-semibold flex items-center justify-between transition text-left"
+                                            :class="selectedUf === sigla ? 'bg-blue-600 text-white border-blue-600' : 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-700'">
+                                        <span x-text="sigla + ' - ' + nome"></span>
+                                        <span x-show="selectedUf === sigla">✓</span>
+                                    </button>
+                                </template>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+
+                <div class="p-4 border-t border-[#E5E7EB] dark:border-slate-800 bg-slate-50 dark:bg-slate-900 flex justify-between">
+                    <button type="button" @click="selectUf(''); drawerOpen = false" class="text-xs font-semibold text-rose-600">Limpar Filtro</button>
+                    <button type="button" @click="drawerOpen = false" class="px-5 py-2 rounded-xl bg-blue-600 text-white text-xs font-bold">Fechar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- 4. MODAL DE BUSCA GLOBAL ⌘K COM 1.858 MUNICÍPIOS                     -->
+    <!-- ===================================================================== -->
+    <div x-show="searchOpen" class="fixed inset-0 z-50 overflow-y-auto p-4 sm:p-6 md:p-20" style="display: none;">
+        <div class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm" @click="searchOpen = false"></div>
+        <div class="relative mx-auto max-w-xl bg-white dark:bg-[#111827] rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden" @click.away="searchOpen = false">
+            <div class="p-3.5 border-b border-slate-100 dark:border-slate-800 flex items-center gap-3">
+                <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                <input type="text" 
+                       x-model="searchQuery" 
+                       x-ref="searchInput"
+                       placeholder="Digite um município (ex: João Pessoa, Curitiba), rodovia ou estado..." 
+                       class="w-full bg-transparent border-none text-sm text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-0">
+                <kbd class="text-[10px] font-bold text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded">ESC</kbd>
+            </div>
+
+            <!-- Contador -->
+            <div class="px-3.5 py-1.5 bg-slate-50 dark:bg-slate-800/60 border-b border-slate-100 dark:border-slate-800 text-[11px] text-slate-500 dark:text-slate-400 flex items-center justify-between"
+                 x-show="searchQuery && searchQuery.trim().length > 0">
+                <span x-show="totalMatchesCount > 15">Exibindo 15 de <strong class="text-slate-800 dark:text-slate-200 font-bold" x-text="totalMatchesCount"></strong> resultados</span>
+                <span x-show="totalMatchesCount > 0 && totalMatchesCount <= 15"><strong class="text-slate-800 dark:text-slate-200 font-bold" x-text="totalMatchesCount"></strong> resultado(s)</span>
+                <span x-show="totalMatchesCount === 0" class="text-rose-500 font-medium">Nenhum resultado</span>
+                <span class="text-[10px] text-slate-400">1.858 municípios mapeados</span>
+            </div>
+
+            <!-- Resultados -->
+            <div class="max-h-80 overflow-y-auto p-2 space-y-1">
+                <template x-for="item in filteredSearchItems" :key="item.titulo + (item.meta || '')">
+                    <button type="button" 
+                            @click="selectSearchItem(item)"
+                            class="w-full flex items-center justify-between p-2.5 rounded-xl hover:bg-blue-50 dark:hover:bg-slate-800/80 text-slate-800 dark:text-slate-200 hover:text-blue-700 dark:hover:text-blue-400 text-xs font-medium transition text-left group">
+                        <div class="flex items-center gap-2.5">
+                            <span class="w-6 h-6 rounded-lg bg-slate-100 dark:bg-slate-800 group-hover:bg-blue-100 dark:group-hover:bg-blue-950/60 flex items-center justify-center text-[10px] font-bold text-slate-600 dark:text-slate-300 group-hover:text-blue-700 dark:group-hover:text-blue-400" 
+                                  x-text="item.tipo === 'Município' ? 'M' : item.tipo[0]"></span>
+                            <span x-text="item.titulo"></span>
+                        </div>
+                        <span class="text-[11px] text-slate-400 dark:text-slate-400 group-hover:text-blue-500 tabular-nums" x-text="item.meta"></span>
+                    </button>
+                </template>
+                <div x-show="totalMatchesCount === 0 && searchQuery && searchQuery.trim().length > 0" class="py-8 text-center text-xs text-slate-400 dark:text-slate-500">
+                    Nenhum município, estado ou rodovia corresponde ao termo digitado.
+                </div>
+            </div>
+
+            <div class="px-4 py-2 bg-slate-50 dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 text-[11px] text-slate-400 flex justify-between">
+                <span>Dica: Pressione <b>⌘K</b> a qualquer momento para abrir esta busca.</span>
+                <span>GitHub Pages SPA</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- 5. ENGINE JAVASCRIPT SPA (ALPINE + ECHARTS)                           -->
+    <!-- ===================================================================== -->
+    <script>
+        document.addEventListener('alpine:init', () => {
+            Alpine.data('dashboardSPA', () => ({
+                loading: true,
+                activeTab: 'visao_geral',
+                sidebarOpen: false,
+                drawerOpen: false,
+                searchOpen: false,
+                searchQuery: '',
+                isDark: document.documentElement.classList.contains('dark'),
+                selectedUf: '',
+                nacionalData: {},
+                porUfData: {},
+                geoJsonData: null,
+                activeData: {},
+                totalMatchesCount: 0,
+                charts: {},
+
+                async init() {
+                    this.isDark = document.documentElement.classList.contains('dark');
+                    
+                    // 1. Carregar datasets estáticos relativos
+                    try {
+                        const [resNacional, resUf, resGeo] = await Promise.all([
+                            fetch('./data/resumo_nacional.json').then(r => r.json()),
+                            fetch('./data/por_uf.json').then(r => r.json()),
+                            fetch('./data/brazil_geo.json').then(r => r.json())
+                        ]);
+                        this.nacionalData = resNacional;
+                        this.porUfData = resUf;
+                        this.geoJsonData = resGeo;
+                        this.activeData = resNacional;
+
+                        // Registrar Mapa do Brasil no ECharts
+                        echarts.registerMap('BR', resGeo);
+                        this.loading = false;
+
+                        // Renderizar gráficos iniciais
+                        this.$nextTick(() => {
+                            this.renderCurrentTabCharts();
+                        });
+                    } catch (err) {
+                        console.error('Falha ao carregar datasets estáticos:', err);
+                        this.loading = false;
+                    }
+
+                    // Atalhos de Teclado (⌘K e ESC)
+                    window.addEventListener('keydown', (e) => {
+                        if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+                            e.preventDefault();
+                            this.searchOpen = true;
+                        } else if (e.key === 'Escape') {
+                            this.searchOpen = false;
+                            this.drawerOpen = false;
+                        }
+                    });
+
+                    this.$watch('searchOpen', (val) => {
+                        if (val && this.$refs.searchInput) {
+                            setTimeout(() => this.$refs.searchInput.focus(), 60);
+                        }
+                    });
+
+                    window.addEventListener('resize', () => {
+                        Object.values(this.charts).forEach(c => c && typeof c.resize === 'function' && c.resize());
+                    });
+
+                    window.addEventListener('themeChanged', () => {
+                        this.renderCurrentTabCharts();
+                    });
+                },
+
+                toggleTheme() {
+                    this.isDark = !this.isDark;
+                    if (this.isDark) {
+                        document.documentElement.classList.add('dark');
+                        localStorage.setItem('theme', 'dark');
+                    } else {
+                        document.documentElement.classList.remove('dark');
+                        localStorage.setItem('theme', 'light');
+                    }
+                    window.dispatchEvent(new Event('themeChanged'));
+                },
+
+                switchTab(tab) {
+                    this.activeTab = tab;
+                    this.sidebarOpen = false;
+                    this.$nextTick(() => {
+                        this.renderCurrentTabCharts();
+                    });
+                },
+
+                selectUf(sigla) {
+                    this.selectedUf = sigla;
+                    if (!sigla || !this.porUfData[sigla]) {
+                        this.activeData = this.nacionalData;
+                    } else {
+                        this.activeData = this.porUfData[sigla];
+                    }
+                    this.$nextTick(() => {
+                        this.renderCurrentTabCharts();
+                    });
+                },
+
+                selectSearchItem(item) {
+                    this.searchOpen = false;
+                    this.searchQuery = '';
+                    if (item.uf) {
+                        this.selectUf(item.uf);
+                    }
+                },
+
+                normalize(text) {
+                    if (!text) return '';
+                    return String(text).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+                },
+
+                get filteredSearchItems() {
+                    const q = this.normalize(this.searchQuery);
+                    const matches = [];
+
+                    // 1. Estados
+                    for (const [sigla, nome] of Object.entries(this.nacionalData.ranking_ufs ? this.nacionalData.ranking_ufs.reduce((acc, u) => ({...acc, [u.sigla]: u.nome}), {}) : {})) {
+                        if (!q || this.normalize(sigla).includes(q) || this.normalize(nome).includes(q)) {
+                            matches.push({ tipo: 'Estado', titulo: `${sigla} - ${nome}`, meta: 'Unidade Federativa', uf: sigla });
+                        }
+                    }
+
+                    // 2. Municípios (1.858 itens)
+                    const munList = this.nacionalData.municipios || [];
+                    for (let i = 0; i < munList.length; i++) {
+                        const m = munList[i];
+                        const munNorm = this.normalize(m.m);
+                        const ufNorm = m.uf.toLowerCase();
+                        if (q && (munNorm.includes(q) || `${munNorm} ${ufNorm}`.includes(q))) {
+                            matches.push({ tipo: 'Município', titulo: m.t || `${m.m} (${m.uf})`, meta: `${m.s.toLocaleString('pt-BR')} ocorrências`, uf: m.uf, municipio: m.m });
+                        }
+                    }
+
+                    this.totalMatchesCount = matches.length;
+                    return matches.slice(0, 15);
+                },
+
+                exportarCSV() {
+                    const data = this.activeData.tabela_rodovias || [];
+                    if (!data.length) return;
+                    let csv = "posicao;rodovia;sinistros;mortos;feridos_graves;letalidade;municipio_critico\n";
+                    data.forEach(r => {
+                        csv += `${r.posicao};${r.br_formatada};${r.sinistros};${r.mortos};${r.feridos_graves};${r.letalidade_fmt};${r.municipio}\n`;
+                    });
+                    const blob = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8;' });
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.setAttribute('href', url);
+                    link.setAttribute('download', `relatorio_sinistros_${this.selectedUf || 'Brasil'}_2026.csv`);
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                },
+
+                renderCurrentTabCharts() {
+                    const theme = window.getChartTheme();
+                    if (this.activeTab === 'visao_geral') {
+                        this.renderEvolucaoMensal(theme);
+                        this.renderDiasSemana(theme);
+                        this.renderGauge(theme);
+                    } else if (this.activeTab === 'mapa') {
+                        this.renderMapaBrasil(theme);
+                    } else if (this.activeTab === 'rodovias') {
+                        this.renderPista(theme);
+                    } else if (this.activeTab === 'causas') {
+                        this.renderCausas(theme);
+                        this.renderTipos(theme);
+                    } else if (this.activeTab === 'temporal') {
+                        this.renderMensalTemporal(theme);
+                        this.renderSemanaTemporal(theme);
+                        this.renderFaseTemporal(theme);
+                        this.renderClimaDonut(theme);
+                    }
+                },
+
+                renderEvolucaoMensal(theme) {
+                    const el = document.getElementById('chart-evolucao');
+                    if (!el) return;
+                    if (!this.charts['evolucao']) this.charts['evolucao'] = echarts.init(el);
+                    const d = this.activeData.evolucao_mensal || { meses: [], sinistros: [], obitos: [] };
+                    this.charts['evolucao'].setOption({
+                        backgroundColor: 'transparent',
+                        tooltip: {
+                            trigger: 'axis',
+                            backgroundColor: theme.tooltipBg,
+                            borderColor: theme.tooltipBorder,
+                            textStyle: { color: theme.tooltipText, fontSize: 12 }
+                        },
+                        grid: { top: 20, right: 20, bottom: 25, left: 45 },
+                        xAxis: { type: 'category', data: d.meses, axisLine: { lineStyle: { color: theme.axisLineColor } }, axisLabel: { color: theme.textColor } },
+                        yAxis: { type: 'value', splitLine: { lineStyle: { color: theme.splitLineColor } }, axisLabel: { color: theme.textColor } },
+                        series: [
+                            {
+                                name: 'Sinistros',
+                                type: 'line',
+                                smooth: true,
+                                data: d.sinistros,
+                                itemStyle: { color: '#2563EB' },
+                                lineStyle: { width: 3, color: '#2563EB' },
+                                areaStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: 'rgba(37, 99, 235, 0.35)' }, { offset: 1, color: 'rgba(37, 99, 235, 0.0)' }]) }
+                            },
+                            {
+                                name: 'Óbitos',
+                                type: 'line',
+                                smooth: true,
+                                data: d.obitos,
+                                itemStyle: { color: '#EF4444' },
+                                lineStyle: { width: 2, color: '#EF4444' }
+                            }
+                        ]
+                    });
+                    this.charts['evolucao'].resize();
+                },
+
+                renderDiasSemana(theme) {
+                    const el = document.getElementById('chart-dias');
+                    if (!el) return;
+                    if (!this.charts['dias']) this.charts['dias'] = echarts.init(el);
+                    const d = this.activeData.dias_semana || { dias: [], sinistros: [] };
+                    this.charts['dias'].setOption({
+                        backgroundColor: 'transparent',
+                        tooltip: { trigger: 'axis', backgroundColor: theme.tooltipBg, textStyle: { color: theme.tooltipText } },
+                        grid: { top: 10, right: 10, bottom: 20, left: 35 },
+                        xAxis: { type: 'category', data: d.dias, axisLine: { lineStyle: { color: theme.axisLineColor } }, axisLabel: { color: theme.textColor, fontSize: 10 } },
+                        yAxis: { type: 'value', splitLine: { lineStyle: { color: theme.splitLineColor } }, axisLabel: { color: theme.textColor, fontSize: 10 } },
+                        series: [{
+                            type: 'bar',
+                            data: d.sinistros,
+                            itemStyle: { color: '#3B82F6', borderRadius: [4, 4, 0, 0] }
+                        }]
+                    });
+                    this.charts['dias'].resize();
+                },
+
+                renderGauge(theme) {
+                    try {
+                        const gaugeContainer = document.getElementById('gauge-ticks');
+                        if (!gaugeContainer) return;
+                        gaugeContainer.innerHTML = '';
+                        const totalTicks = 30;
+                        const activeTicks = this.activeData.gauge ? (this.activeData.gauge.segmentos_ativos || 0) : 0;
+                        const cx = 120, cy = 115, rInner = 74, rOuter = 98;
+
+                        for (let i = 0; i < totalTicks; i++) {
+                            const angleDeg = 180 - (i / (totalTicks - 1)) * 180;
+                            const angleRad = (angleDeg * Math.PI) / 180;
+
+                            const x1 = cx + rInner * Math.cos(angleRad);
+                            const y1 = cy - rInner * Math.sin(angleRad);
+                            const x2 = cx + rOuter * Math.cos(angleRad);
+                            const y2 = cy - rOuter * Math.sin(angleRad);
+
+                            const isActive = i < activeTicks;
+                            const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                            line.setAttribute('x1', x1);
+                            line.setAttribute('y1', y1);
+                            line.setAttribute('x2', x2);
+                            line.setAttribute('y2', y2);
+                            line.setAttribute('stroke-width', '4');
+                            line.setAttribute('stroke-linecap', 'round');
+                            line.setAttribute('stroke', isActive ? 'url(#gaugeGradient)' : (theme.gaugeBgColor || '#E2E8F0'));
+                            line.setAttribute('opacity', '1');
+
+                            gaugeContainer.appendChild(line);
+                        }
+                    } catch (e) {
+                        console.error('Erro no medidor gauge:', e);
+                    }
+                },
+
+                renderMapaBrasil(theme) {
+                    const el = document.getElementById('chart-mapa-brasil');
+                    if (!el || !this.geoJsonData) return;
+                    if (!this.charts['mapa']) {
+                        this.charts['mapa'] = echarts.init(el);
+                        this.charts['mapa'].on('click', (params) => {
+                            if (params.data && params.data.sigla) {
+                                this.selectUf(params.data.sigla);
+                            }
+                        });
+                    }
+                    const seriesData = this.nacionalData.mapa_series || [];
+                    const maxVal = this.nacionalData.max_sinistros_uf || 5000;
+                    this.charts['mapa'].setOption({
+                        backgroundColor: 'transparent',
+                        tooltip: {
+                            trigger: 'item',
+                            backgroundColor: theme.tooltipBg,
+                            borderColor: theme.tooltipBorder,
+                            textStyle: { color: theme.tooltipText, fontSize: 12 },
+                            formatter: (p) => {
+                                if (!p.data) return `<b>${p.name}</b><br/>Sem dados`;
+                                const d = p.data;
+                                return `<b>${d.name} (${d.sigla})</b><br/>Sinistros: <b>${d.sinistros.toLocaleString('pt-BR')}</b><br/><span style="color:#F87171;">Óbitos: <b>${d.mortos.toLocaleString('pt-BR')}</b></span><br/>Letalidade: <b>${d.letalidade.toFixed(1)}%</b><br/><span style="color:#93C5FD;font-size:10px;">Clique para filtrar</span>`;
+                            }
+                        },
+                        visualMap: {
+                            min: 0,
+                            max: maxVal,
+                            text: ['Alto', 'Baixo'],
+                            calculable: true,
+                            inRange: { color: theme.isDark ? ['#1E293B', '#1D4ED8', '#2563EB', '#60A5FA'] : ['#EFF6FF', '#93C5FD', '#3B82F6', '#1D4ED8'] },
+                            textStyle: { color: theme.textColor, fontSize: 10 },
+                            bottom: 10,
+                            left: 10,
+                            itemWidth: 12,
+                            itemHeight: 70
+                        },
+                        series: [{
+                            type: 'map',
+                            map: 'BR',
+                            roam: true,
+                            itemStyle: { borderColor: theme.isDark ? '#334155' : '#FFFFFF', borderWidth: 1.2, areaColor: theme.isDark ? '#1E293B' : '#F1F5F9' },
+                            emphasis: { itemStyle: { areaColor: '#F59E0B' }, label: { show: true, color: '#FFF' } },
+                            data: seriesData
+                        }]
+                    });
+                    this.charts['mapa'].resize();
+                },
+
+                renderPista(theme) {
+                    const el = document.getElementById('chart-pista');
+                    if (!el) return;
+                    if (!this.charts['pista']) this.charts['pista'] = echarts.init(el);
+                    const d = this.activeData.pista || { categorias: [], sinistros: [], obitos: [], feridos_graves: [] };
+                    this.charts['pista'].setOption({
+                        backgroundColor: 'transparent',
+                        tooltip: { trigger: 'axis', backgroundColor: theme.tooltipBg, textStyle: { color: theme.tooltipText } },
+                        legend: { data: ['Sinistros', 'Óbitos', 'Feridos Graves'], textStyle: { color: theme.textColor }, top: 0 },
+                        grid: { top: 40, right: 20, bottom: 25, left: 45 },
+                        xAxis: { type: 'category', data: d.categorias, axisLine: { lineStyle: { color: theme.axisLineColor } }, axisLabel: { color: theme.textColor } },
+                        yAxis: { type: 'value', splitLine: { lineStyle: { color: theme.splitLineColor } }, axisLabel: { color: theme.textColor } },
+                        series: [
+                            { name: 'Sinistros', type: 'bar', data: d.sinistros, itemStyle: { color: '#2563EB', borderRadius: [4, 4, 0, 0] } },
+                            { name: 'Óbitos', type: 'bar', data: d.obitos, itemStyle: { color: '#EF4444', borderRadius: [4, 4, 0, 0] } },
+                            { name: 'Feridos Graves', type: 'bar', data: d.feridos_graves, itemStyle: { color: '#F59E0B', borderRadius: [4, 4, 0, 0] } }
+                        ]
+                    });
+                    this.charts['pista'].resize();
+                },
+
+                renderCausas(theme) {
+                    const el = document.getElementById('chart-causas');
+                    if (!el) return;
+                    if (!this.charts['causas']) this.charts['causas'] = echarts.init(el);
+                    const d = this.activeData.causas || { causas: [], totais: [] };
+                    this.charts['causas'].setOption({
+                        backgroundColor: 'transparent',
+                        tooltip: { trigger: 'axis', backgroundColor: theme.tooltipBg, textStyle: { color: theme.tooltipText } },
+                        grid: { top: 10, right: 25, bottom: 20, left: 160 },
+                        xAxis: { type: 'value', splitLine: { lineStyle: { color: theme.splitLineColor } }, axisLabel: { color: theme.textColor } },
+                        yAxis: { type: 'category', data: d.causas, axisLabel: { color: theme.textColor, fontSize: 10, width: 150, overflow: 'truncate' } },
+                        series: [{ type: 'bar', data: d.totais, itemStyle: { color: '#2563EB', borderRadius: [0, 4, 4, 0] } }]
+                    });
+                    this.charts['causas'].resize();
+                },
+
+                renderTipos(theme) {
+                    const el = document.getElementById('chart-tipos');
+                    if (!el) return;
+                    if (!this.charts['tipos']) this.charts['tipos'] = echarts.init(el);
+                    const d = this.activeData.tipos || { tipos: [], totais: [] };
+                    this.charts['tipos'].setOption({
+                        backgroundColor: 'transparent',
+                        tooltip: { trigger: 'axis', backgroundColor: theme.tooltipBg, textStyle: { color: theme.tooltipText } },
+                        grid: { top: 10, right: 25, bottom: 20, left: 160 },
+                        xAxis: { type: 'value', splitLine: { lineStyle: { color: theme.splitLineColor } }, axisLabel: { color: theme.textColor } },
+                        yAxis: { type: 'category', data: d.tipos, axisLabel: { color: theme.textColor, fontSize: 10, width: 150, overflow: 'truncate' } },
+                        series: [{ type: 'bar', data: d.totais, itemStyle: { color: '#8B5CF6', borderRadius: [0, 4, 4, 0] } }]
+                    });
+                    this.charts['tipos'].resize();
+                },
+
+                renderMensalTemporal(theme) {
+                    const el = document.getElementById('chart-mensal-temporal');
+                    if (!el) return;
+                    if (!this.charts['mensal_temp']) this.charts['mensal_temp'] = echarts.init(el);
+                    const d = this.activeData.evolucao_mensal || { meses: [], sinistros: [], obitos: [] };
+                    this.charts['mensal_temp'].setOption({
+                        backgroundColor: 'transparent',
+                        tooltip: { trigger: 'axis', backgroundColor: theme.tooltipBg, textStyle: { color: theme.tooltipText } },
+                        grid: { top: 20, right: 20, bottom: 25, left: 45 },
+                        xAxis: { type: 'category', data: d.meses, axisLabel: { color: theme.textColor } },
+                        yAxis: { type: 'value', splitLine: { lineStyle: { color: theme.splitLineColor } }, axisLabel: { color: theme.textColor } },
+                        series: [
+                            { name: 'Sinistros', type: 'line', smooth: true, data: d.sinistros, itemStyle: { color: '#2563EB' } },
+                            { name: 'Óbitos', type: 'line', smooth: true, data: d.obitos, itemStyle: { color: '#EF4444' } }
+                        ]
+                    });
+                    this.charts['mensal_temp'].resize();
+                },
+
+                renderSemanaTemporal(theme) {
+                    const el = document.getElementById('chart-semana-temporal');
+                    if (!el) return;
+                    if (!this.charts['semana_temp']) this.charts['semana_temp'] = echarts.init(el);
+                    const d = this.activeData.dias_semana || { dias: [], sinistros: [] };
+                    this.charts['semana_temp'].setOption({
+                        backgroundColor: 'transparent',
+                        tooltip: { trigger: 'axis', backgroundColor: theme.tooltipBg, textStyle: { color: theme.tooltipText } },
+                        grid: { top: 15, right: 15, bottom: 25, left: 40 },
+                        xAxis: { type: 'category', data: d.dias, axisLabel: { color: theme.textColor } },
+                        yAxis: { type: 'value', splitLine: { lineStyle: { color: theme.splitLineColor } }, axisLabel: { color: theme.textColor } },
+                        series: [{ type: 'bar', data: d.sinistros, itemStyle: { color: '#3B82F6', borderRadius: [4, 4, 0, 0] } }]
+                    });
+                    this.charts['semana_temp'].resize();
+                },
+
+                renderFaseTemporal(theme) {
+                    const el = document.getElementById('chart-fase-temporal');
+                    if (!el) return;
+                    if (!this.charts['fase_temp']) this.charts['fase_temp'] = echarts.init(el);
+                    const d = this.activeData.fases_dia || { fases: [], sinistros: [] };
+                    this.charts['fase_temp'].setOption({
+                        backgroundColor: 'transparent',
+                        tooltip: { trigger: 'axis', backgroundColor: theme.tooltipBg, textStyle: { color: theme.tooltipText } },
+                        grid: { top: 15, right: 15, bottom: 25, left: 40 },
+                        xAxis: { type: 'category', data: d.fases, axisLabel: { color: theme.textColor, fontSize: 10 } },
+                        yAxis: { type: 'value', splitLine: { lineStyle: { color: theme.splitLineColor } }, axisLabel: { color: theme.textColor } },
+                        series: [{ type: 'bar', data: d.sinistros, itemStyle: { color: '#EC4899', borderRadius: [4, 4, 0, 0] } }]
+                    });
+                    this.charts['fase_temp'].resize();
+                },
+
+                renderClimaDonut(theme) {
+                    const el = document.getElementById('chart-clima-donut');
+                    if (!el) return;
+                    if (!this.charts['clima']) this.charts['clima'] = echarts.init(el);
+                    const d = this.activeData.clima || [];
+                    this.charts['clima'].setOption({
+                        backgroundColor: 'transparent',
+                        tooltip: { trigger: 'item', backgroundColor: theme.tooltipBg, textStyle: { color: theme.tooltipText } },
+                        legend: { orient: 'vertical', right: 10, top: 'center', textStyle: { color: theme.textColor, fontSize: 10 } },
+                        series: [{
+                            type: 'pie',
+                            radius: ['45%', '70%'],
+                            center: ['40%', '50%'],
+                            avoidLabelOverlap: false,
+                            itemStyle: { borderRadius: 8, borderColor: theme.isDark ? '#111827' : '#FFFFFF', borderWidth: 2 },
+                            label: { show: false },
+                            data: d
+                        }]
+                    });
+                    this.charts['clima'].resize();
+                }
+            }));
+        });
+    </script>
+</body>
+</html>
