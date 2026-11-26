@@ -27,7 +27,7 @@ A plataforma processa a base oficial de microdados abertos da **Polícia Rodovi�
 
 | Dashboard Principal (Light Mode) | Modo Escuro (Dark Mode Persistente) |
 | :---: | :---: |
-| ![Dashboard Principal](docs/preview-home.png) | ![Dark Mode](docs/preview-dark.png) |
+| ![Dashboard Principal](d<img width="1904" height="1123" alt="Captura de Tela 2026-11-26 às 16 54 51" src="https://github.com/user-attachments/assets/63d6b1f9-a5c6-48b6-a81c-cf3237d2a404" />) | ![Dark Mode](<img width="1904" height="1123" alt="Captura de Tela 2026-11-26 às 16 59 16" src="https://github.com/user-attachments/assets/cd7e3345-614d-4a17-9a94-a1ba8ec69d15" />) |
 
 | Módulo Geoespacial Vetorial | Rodovias & Trechos Críticos |
 | :---: | :---: |
